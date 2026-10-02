@@ -85,6 +85,7 @@
   .basket-sym { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 6px; }
   .star { color: var(--yellow); font-size: 13px; }
   .basket-side { font-size: 10.5px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .cash-badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; background: rgba(245,197,24,0.15); color: var(--yellow); margin-left: 6px; }
   .side-sell { background: rgba(239,68,68,0.15); color: var(--red); }
   .side-buy { background: rgba(34,197,94,0.15); color: var(--green); }
   .basket-grid {
@@ -151,7 +152,6 @@
       <div class="chip disabled" data-tf="Daily">1 Din</div>
       <div class="chip active" data-tf="Weekly">1 Hafta</div>
       <div class="chip" data-tf="Monthly">1 Mahina</div>
-      <div class="chip" data-tf="Portfolio">Cash Stocks</div>
     </div>
 
     <div class="summary-bar" id="summaryBar"></div>
@@ -191,7 +191,7 @@
 <script>
   var DATA_URL = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec?format=json&tab=signals";
 
-  var TF_HORIZON = { Daily: "~1 din", Weekly: "~3 mahine", Monthly: "~1 mahina", Portfolio: "Long-term hold (sirf BUY, SELL nahi)" };
+  var TF_HORIZON = { Daily: "~1 din", Weekly: "~3 mahine", Monthly: "~1 mahina" };
   var currentTF = "Weekly";
   var ALL_SIGNALS = [];
 
@@ -238,7 +238,10 @@
       html += '<div class="basket-card' + (c.isBest ? ' best' : '') + '">' +
         '<div class="basket-top">' +
           '<span class="basket-sym">' + (c.isBest ? '<span class="star">⭐</span>' : '') + r.Symbol + '</span>' +
-          '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
+          '<span>' +
+            '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
+            (r.Source === "Scanner-Cash" ? '<span class="cash-badge">Cash</span>' : '') +
+          '</span>' +
         '</div>' +
         '<div class="basket-grid">' +
           '<div><div class="g-label">Qty</div><div class="g-val">' + c.qty + '</div></div>' +
