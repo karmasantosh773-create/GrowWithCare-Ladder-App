@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>GWC F&O Ladder Scan</title>
+<title>Grow With Care</title>
 <meta name="theme-color" content="#0f1115">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GWC Ladder">
+<meta name="apple-mobile-web-app-title" content="Grow With Care">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -25,140 +25,293 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    margin: 0;
-    font-family: "Segoe UI", Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    margin: 0; font-family: "Segoe UI", Arial, sans-serif;
+    background: var(--bg); color: var(--text);
   }
   header {
-    padding: 16px 16px calc(12px + env(safe-area-inset-top, 0px));
-    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    z-index: 5;
+    position: sticky; top: 0; background: var(--bg); z-index: 5;
   }
-  header h1 { margin: 0 0 10px; font-size: 18px; }
-  header h1 span { color: var(--yellow); }
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand h1 { margin: 0; font-size: 19px; }
+  .brand h1 .grow { color: var(--green); }
+  .brand h1 .care { color: var(--yellow); }
+  .tagline { margin: 3px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
-  .search {
-    flex: 1; min-width: 160px;
-    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 10px 12px; font-size: 14px;
-  }
-  .filterbtn {
-    background: var(--card); border: 1px solid var(--border); color: var(--muted);
-    border-radius: 8px; padding: 10px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
-  }
-  .filterbtn.active { color: var(--bg); background: var(--yellow); border-color: var(--yellow); font-weight: 600; }
+  main { padding: 14px; max-width: 900px; margin: 0 auto; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .screen { display: none; }
+  .screen.active { display: block; }
 
-  main { padding: 12px; max-width: 900px; margin: 0 auto; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
-  .meta { color: var(--muted); font-size: 12px; margin: 4px 2px 12px; }
+  .section-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 18px 2px 8px; }
+  .section-label:first-child { margin-top: 0; }
 
-  .stock-card {
+  .amount-box {
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 14px; margin-bottom: 8px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
+    display: flex; align-items: center; padding: 4px 4px 4px 14px;
   }
-  .stock-sym { font-weight: 700; font-size: 15px; grid-column: 1 / 2; }
-  .stock-cmp { font-size: 15px; grid-column: 2 / 3; text-align: right; }
-  .stock-row2 { grid-column: 1 / 3; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .pct-drop { color: var(--red); font-weight: 600; }
-  .pct-rise { color: var(--green); font-weight: 600; }
+  .amount-box .rupee { color: var(--muted); font-size: 16px; margin-right: 4px; }
+  .amount-box input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-size: 18px; font-weight: 600; padding: 12px 8px; outline: none; min-width: 0;
+  }
 
-  .empty, .loading { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 20px; padding: 9px 16px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .chip.active { color: var(--bg); background: var(--yellow); border-color: var(--yellow); font-weight: 700; }
+
+  .note { font-size: 11px; color: var(--muted); margin: 8px 2px 0; line-height: 1.5; }
+
+  .basket-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 14px; margin-bottom: 8px;
+  }
+  .basket-top { display: flex; justify-content: space-between; align-items: center; }
+  .basket-sym { font-weight: 700; font-size: 15px; }
+  .basket-reason { font-size: 10.5px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .reason-dip { background: rgba(34,197,94,0.15); color: var(--green); }
+  .reason-breakout { background: rgba(245,197,24,0.15); color: var(--yellow); }
+  .basket-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px;
+  }
+  .basket-grid div { text-align: center; }
+  .g-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .g-val { font-size: 13px; font-weight: 700; }
+  .g-sl { color: var(--red); }
+  .g-tgt { color: var(--green); }
+
+  .summary-bar {
+    display: flex; justify-content: space-between; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+    font-size: 12px; color: var(--muted);
+  }
+  .summary-bar b { color: var(--text); font-size: 14px; display: block; margin-top: 2px; }
+
+  .hist-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .hist-label { font-size: 13px; color: var(--muted); }
+  .hist-val { font-size: 16px; font-weight: 700; }
+  .disclaimer {
+    background: rgba(245,197,24,0.08); border: 1px solid rgba(245,197,24,0.3); border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 16px;
+  }
+
+  .empty, .loading { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 14px; }
+
+  nav.tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+    background: var(--card); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 10;
+  }
+  nav.tabbar button {
+    flex: 1; background: none; border: none; color: var(--muted); font-size: 12px;
+    padding: 10px 0 8px; cursor: pointer; font-family: inherit;
+  }
+  nav.tabbar button .ic { display: block; font-size: 18px; margin-bottom: 2px; }
+  nav.tabbar button.active { color: var(--yellow); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>GWC F&amp;O <span>Ladder Scan</span></h1>
-  <div class="controls">
-    <input class="search" id="searchBox" type="text" placeholder="Symbol search karo (jaise RELIANCE)">
+  <div class="brand">
+    <h1><span class="grow">Grow</span> With <span class="care">Care</span></h1>
   </div>
-  <div class="controls" style="margin-top:8px;">
-    <button class="filterbtn active" data-f="all">Sab</button>
-    <button class="filterbtn" data-f="broke_top">ATH se 6.25%+ tooÑ‚Ðµ</button>
-    <button class="filterbtn" data-f="rose_bottom">Low se 6.25%+ uthe</button>
-  </div>
+  <p class="tagline">Aapke fund ki care, behtar result ki ummeed — profit guaranteed nahi hai.</p>
 </header>
 
 <main>
-  <div class="meta" id="metaInfo">Loading...</div>
-  <div id="list"><div class="loading">Data load ho raha hai...</div></div>
+
+  <!-- ===== SCAN SCREEN ===== -->
+  <section class="screen active" id="screen-scan">
+    <div class="section-label">Kitna lagana hai</div>
+    <div class="amount-box">
+      <span class="rupee">₹</span>
+      <input id="amountInput" type="number" inputmode="numeric" placeholder="2,00,000" value="100000">
+    </div>
+
+    <div class="section-label">Kitne time ke liye</div>
+    <div class="chip-row" id="tfChips">
+      <div class="chip" data-tf="day">1 Din</div>
+      <div class="chip active" data-tf="week">1 Hafta</div>
+      <div class="chip" data-tf="month">1 Mahina</div>
+    </div>
+
+    <div class="section-label">Kahan trade karna hai</div>
+    <div class="chip-row" id="universeChips">
+      <div class="chip active" data-u="stocks">Stocks</div>
+      <div class="chip" data-u="index">Index</div>
+    </div>
+    <div class="chip-row" id="productChips" style="margin-top:8px;">
+      <div class="chip active" data-p="cash">Cash (sirf Buy)</div>
+      <div class="chip" data-p="options">Options</div>
+      <div class="chip" data-p="futures">Futures</div>
+    </div>
+    <div class="note" id="productNote"></div>
+
+    <div class="summary-bar" id="summaryBar"></div>
+
+    <div class="section-label">Aapka Basket</div>
+    <div id="basketList"><div class="loading">Data load ho raha hai...</div></div>
+
+    <div class="disclaimer">
+      ⚠️ Yeh sirf ek scanner hai, SEBI-registered advice nahi hai. Entry/SL/Target
+      ladder-logic se calculate hote hain, guaranteed profit ka koi vaada nahi.
+      Khud samajhkar, apni zimmedari par trade karein.
+    </div>
+  </section>
+
+  <!-- ===== HISTORY SCREEN ===== -->
+  <section class="screen" id="screen-history">
+    <div class="section-label">Returns</div>
+    <div class="hist-card"><span class="hist-label">Kal ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
+    <div class="hist-card"><span class="hist-label">Is hafte ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
+    <div class="hist-card"><span class="hist-label">Is mahine ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
+
+    <div class="section-label">Signal Track Record</div>
+    <div class="hist-card"><span class="hist-label">Kul Signal bane</span><span class="hist-val" style="color:var(--muted)">-</span></div>
+    <div class="hist-card"><span class="hist-label">Target Hit</span><span class="hist-val" style="color:var(--muted)">-</span></div>
+    <div class="hist-card"><span class="hist-label">Stop-Loss Hit</span><span class="hist-val" style="color:var(--muted)">-</span></div>
+
+    <div class="note" style="margin-top:12px;">Yeh section abhi khaali hai — jab roz ka scan live chalega, tabhi yahan asli history dikhni shuru hogi.</div>
+  </section>
+
 </main>
 
+<nav class="tabbar">
+  <button class="active" data-screen="scan"><span class="ic">🔍</span>Scan</button>
+  <button data-screen="history"><span class="ic">📊</span>History</button>
+</nav>
+
 <script>
-  // Yahi wo Apps Script Web App URL hai jo backend/data deta hai
   var DATA_URL = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec?format=json";
 
+  // Timeframe -> ladder % (PLACEHOLDER - asli % baad mein decide honge)
+  var TF_PCT = { day: 1.5625, week: 6.25, month: 25 };
+  var currentTF = "week";
+  var currentUniverse = "stocks";
+  var currentProduct = "cash";
   var ALL_ROWS = [];
-  var currentFilter = "all";
+  var MAX_BASKET = 10;
 
   function fmtNum(v) {
     if (v === "" || v === null || typeof v === "undefined" || isNaN(v)) return "-";
     return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
-  function fmtPct(v) {
-    if (v === "" || v === null || typeof v === "undefined" || isNaN(v)) return "-";
-    return Number(v).toFixed(2) + "%";
+  function fmtRupee(v) { return "₹" + fmtNum(v); }
+
+  function computeBasket() {
+    var threshold = TF_PCT[currentTF];
+    var slPct = threshold / 4;
+    var amount = parseFloat(document.getElementById("amountInput").value) || 0;
+
+    var candidates = ALL_ROWS
+      .map(function (r) {
+        var drop = Number(r.Drawdown_Pct), rise = Number(r.Rise_Pct);
+        var reason = null, score = 0;
+        if (drop >= threshold) { reason = "dip"; score = drop; }
+        if (rise >= threshold && rise > (reason ? score : -1)) { reason = "breakout"; score = rise; }
+        return reason ? { row: r, reason: reason, score: score } : null;
+      })
+      .filter(Boolean)
+      .sort(function (a, b) { return b.score - a.score; })
+      .slice(0, MAX_BASKET);
+
+    document.getElementById("summaryBar").innerHTML =
+      '<div>Threshold (placeholder)<b>' + threshold + '%</b></div>' +
+      '<div>Basket mein Stocks<b>' + candidates.length + '</b></div>' +
+      '<div>Per-stock Amount<b>' + fmtRupee(candidates.length ? amount / candidates.length : 0) + '</b></div>';
+
+    var container = document.getElementById("basketList");
+    if (candidates.length === 0) {
+      container.innerHTML = '<div class="empty">Abhi is timeframe par koi stock basket mein nahi hai.</div>';
+      return;
+    }
+
+    var perStockAmt = amount / candidates.length;
+    var html = "";
+    candidates.forEach(function (c) {
+      var r = c.row;
+      var cmp = Number(r.CMP);
+      var qty = cmp > 0 ? Math.floor(perStockAmt / cmp) : 0;
+      var sl = cmp * (1 - slPct / 100);
+      var tgt = cmp * (1 + threshold / 100);
+      html += '<div class="basket-card">' +
+        '<div class="basket-top">' +
+          '<span class="basket-sym">' + r.Symbol + '</span>' +
+          '<span class="basket-reason ' + (c.reason === "dip" ? "reason-dip" : "reason-breakout") + '">' +
+            (c.reason === "dip" ? "ATH se dip" : "Low se breakout") + '</span>' +
+        '</div>' +
+        '<div class="basket-grid">' +
+          '<div><div class="g-label">Qty</div><div class="g-val">' + qty + '</div></div>' +
+          '<div><div class="g-label">Entry</div><div class="g-val">' + fmtNum(cmp) + '</div></div>' +
+          '<div><div class="g-label">SL</div><div class="g-val g-sl">' + fmtNum(sl) + '</div></div>' +
+          '<div><div class="g-label">Target</div><div class="g-val g-tgt">' + fmtNum(tgt) + '</div></div>' +
+        '</div>' +
+      '</div>';
+    });
+    container.innerHTML = html;
   }
 
-  function render() {
-    var q = document.getElementById("searchBox").value.trim().toUpperCase();
-    var rows = ALL_ROWS.filter(function (r) {
-      if (q && String(r.Symbol).toUpperCase().indexOf(q) < 0) return false;
-      if (currentFilter === "broke_top" && !(Number(r.Drawdown_Pct) >= 6.25)) return false;
-      if (currentFilter === "rose_bottom" && !(Number(r.Rise_Pct) >= 6.25)) return false;
-      return true;
-    });
-
-    document.getElementById("metaInfo").textContent =
-      rows.length + " stocks mil rahe hain (kul " + ALL_ROWS.length + " mein se)";
-
-    var html = "";
-    if (rows.length === 0) {
-      html = '<div class="empty">Koi stock nahi mila.</div>';
-    } else {
-      rows.forEach(function (r) {
-        html += '<div class="stock-card">' +
-          '<div class="stock-sym">' + r.Symbol + '</div>' +
-          '<div class="stock-cmp">' + fmtNum(r.CMP) + '</div>' +
-          '<div class="stock-row2">' +
-            '<span>ATH: ' + fmtNum(r.ATH) + ' (' + (r.ATH_Date || "-") + ')</span>' +
-            '<span class="pct-drop">-' + fmtPct(r.Drawdown_Pct) + '</span>' +
-          '</div>' +
-          '<div class="stock-row2">' +
-            '<span>Recent Low: ' + fmtNum(r.Recent_Low) + ' (' + (r.Recent_Low_Date || "-") + ')</span>' +
-            '<span class="pct-rise">+' + fmtPct(r.Rise_Pct) + '</span>' +
-          '</div>' +
-        '</div>';
-      });
-    }
-    document.getElementById("list").innerHTML = html;
+  function updateProductNote() {
+    var note = "";
+    if (currentProduct === "cash") note = "Cash mein sirf BUY hoga, Short karne ka option nahi hai (carry-forward allowed nahi).";
+    if (currentProduct === "options") note = "Stock Options mein expiry hamesha Monthly rahegi (default).";
+    if (currentProduct === "futures") note = "Futures mein Buy aur Sell (Short), dono carry-forward ho sakte hain.";
+    document.getElementById("productNote").textContent = note;
   }
 
   function loadData() {
     fetch(DATA_URL).then(function (res) { return res.json(); }).then(function (data) {
       ALL_ROWS = data;
-      render();
-    }).catch(function (err) {
-      document.getElementById("metaInfo").textContent = "Data load nahi ho paya: " + err;
-      document.getElementById("list").innerHTML = '<div class="empty">Data load nahi ho paya. Internet check karein.</div>';
+      computeBasket();
+    }).catch(function () {
+      document.getElementById("basketList").innerHTML = '<div class="empty">Data load nahi ho paya. Internet check karein.</div>';
     });
   }
 
-  document.getElementById("searchBox").addEventListener("input", render);
-  document.querySelectorAll(".filterbtn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      document.querySelectorAll(".filterbtn").forEach(function (b) { b.classList.remove("active"); });
-      btn.classList.add("active");
-      currentFilter = btn.getAttribute("data-f");
-      render();
+  document.getElementById("amountInput").addEventListener("input", computeBasket);
+
+  document.querySelectorAll("#tfChips .chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll("#tfChips .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentTF = chip.getAttribute("data-tf");
+      computeBasket();
+    });
+  });
+  document.querySelectorAll("#universeChips .chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll("#universeChips .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentUniverse = chip.getAttribute("data-u");
+      computeBasket();
+    });
+  });
+  document.querySelectorAll("#productChips .chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll("#productChips .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentProduct = chip.getAttribute("data-p");
+      updateProductNote();
     });
   });
 
+  document.querySelectorAll("nav.tabbar button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll("nav.tabbar button").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+      document.getElementById("screen-" + btn.getAttribute("data-screen")).classList.add("active");
+    });
+  });
+
+  updateProductNote();
   loadData();
 
   if ("serviceWorker" in navigator) {
