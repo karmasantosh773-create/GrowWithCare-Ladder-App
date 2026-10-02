@@ -113,6 +113,13 @@
     padding: 12px 14px; font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 16px;
   }
 
+  .about-story { padding: 4px 2px 20px; }
+  .about-story h2 { font-size: 18px; margin: 0 0 16px; color: var(--yellow); }
+  .about-story p { font-size: 14px; line-height: 1.8; color: var(--text); margin: 0 0 16px; }
+  .about-story em { color: var(--yellow); font-style: normal; font-weight: 600; }
+  .about-story b { color: var(--green); }
+  .about-tagline { text-align: center; font-size: 15px; font-weight: 700; color: var(--yellow); margin-top: 24px !important; }
+
   .empty, .loading { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 14px; }
 
   nav.tabbar {
@@ -188,11 +195,24 @@
     <div class="note" style="margin-top:12px;">Yeh section abhi khaali hai — jab roz ka scan live chalega, tabhi yahan asli history dikhni shuru hogi.</div>
   </section>
 
+  <!-- ===== ABOUT SCREEN ===== -->
+  <section class="screen" id="screen-about">
+    <div class="about-story">
+      <h2>एक कंपनी, अनगिनत Journeys</h2>
+      <p>एक बड़ा Price Move अपने अंदर छोटे-छोटे Moves छुपाए रहता है। एक बड़ा Structure अपने अंदर छोटे Structures बनाता है। इसलिए सवाल सिर्फ़ यह नहीं है — <em>"Price कहाँ जाएगा?"</em> सवाल यह है — <em>"मैं Market की कौन-सी journey में हूँ?"</em></p>
+      <p>एक कंपनी शुरू हुई। <b>दादा</b> ने उसका मूल business खड़ा किया — सालों की मेहनत से, पूरी एक generation की journey। उसी नींव पर <b>पिता</b> ने महीनों में एक नया business-line जोड़ा — अपनी business-line की journey। उसी के अंदर <b>बेटे</b> ने हफ़्तों में एक छोटी opportunity पकड़ी। और उसके अंदर <b>पोते</b> ने दिनों में एक और छोटी, तेज़ journey शुरू की।</p>
+      <p>सवाल यह नहीं था कि कौन-सी growth बड़ी है और कौन-सी छोटी — एक बड़ी growth के अंदर एक छोटी growth छिपी थी, उस छोटी के अंदर उससे भी छोटी। एक कंपनी थी, पर उसके अंदर अनगिनत growth-journeys थीं। किसी को पूरी कंपनी खरीदने की ज़रूरत नहीं थी — ज़रूरत थी अपनी journey को समझने की।</p>
+      <p>पहले अपनी Time Horizon तय करो। फिर अपना Structure पहचानो। फिर उसी Structure के नियमों के साथ चलो।</p>
+      <p class="about-tagline">एक Market। अनगिनत Journeys। अनगिनत Opportunities।</p>
+    </div>
+  </section>
+
 </main>
 
 <nav class="tabbar">
   <button class="active" data-screen="scan"><span class="ic">🔍</span>Scan</button>
   <button data-screen="history"><span class="ic">📊</span>History</button>
+  <button data-screen="about"><span class="ic">📖</span>About</button>
 </nav>
 
 <script>
