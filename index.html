@@ -141,13 +141,20 @@
 
   <!-- ===== SCAN SCREEN ===== -->
   <section class="screen active" id="screen-scan">
+    <div class="section-label">Segment</div>
+    <div class="chip-row" id="segChips">
+      <div class="chip active" data-seg="fo">F&amp;O (Stocks)</div>
+      <div class="chip" data-seg="index">F&amp;O (Index)</div>
+      <div class="chip" data-seg="cash">Cash</div>
+    </div>
+
     <div class="section-label">Har Stock mein kitna lagana hai</div>
     <div class="amount-box">
       <span class="rupee">₹</span>
       <input id="amountInput" type="number" inputmode="numeric" placeholder="40,000" value="40000">
     </div>
 
-    <div class="section-label">Timeframe</div>
+    <div class="section-label" id="tfLabel">Timeframe</div>
     <div class="chip-row" id="tfChips">
       <div class="chip disabled" data-tf="Daily">1 Din</div>
       <div class="chip active" data-tf="Weekly">1 Hafta</div>
@@ -193,6 +200,7 @@
 
   var TF_HORIZON = { Daily: "~1 din", Weekly: "~1 mahina", Monthly: "~3 mahine" };
   var currentTF = "Weekly";
+  var currentSegment = "fo";
   var ALL_SIGNALS = [];
 
   function fmtNum(v) {
@@ -202,8 +210,20 @@
   function fmtRupee(v) { return "₹" + fmtNum(Math.round(v)); }
 
   function computeBasket() {
+    if (currentSegment === "index") {
+      document.getElementById("summaryBar").innerHTML = "";
+      document.getElementById("basketList").innerHTML = '<div class="empty">Index (Nifty/BankNifty) scanner jald aayega.</div>';
+      return;
+    }
+
     var amount = parseFloat(document.getElementById("amountInput").value) || 0;
-    var rows = ALL_SIGNALS.filter(function (r) { return r.Timeframe === currentTF; });
+    var effectiveTF = currentSegment === "cash" ? "Monthly" : currentTF;
+    var rows = ALL_SIGNALS.filter(function (r) {
+      var isCash = r.Source === "Scanner-Cash";
+      if (currentSegment === "cash" && !isCash) return false;
+      if (currentSegment === "fo" && isCash) return false;
+      return r.Timeframe === effectiveTF;
+    });
     // Rank: sabse CHHOTA SL% sabse accha (tightest risk) - usi ko star milega
     rows = rows.slice().sort(function (a, b) { return Number(a.SL_Pct) - Number(b.SL_Pct); });
 
@@ -224,7 +244,7 @@
       '<div>Kul Capital<b>' + fmtRupee(totalCapital) + '</b></div>' +
       '<div>Max Risk (sab SL lagein)<b class="risk">' + fmtRupee(totalRisk) + '</b></div>' +
       '<div>Max Profit (sab Target hit)<b class="profit">' + fmtRupee(totalProfit) + '</b></div>' +
-      '<div class="summary-horizon">Agar poora basket hit hota hai, potential samay: ' + (TF_HORIZON[currentTF] || "-") + '</div>';
+      '<div class="summary-horizon">Agar poora basket hit hota hai, potential samay: ' + (TF_HORIZON[effectiveTF] || "-") + '</div>';
 
     var container = document.getElementById("basketList");
     if (cards.length === 0) {
@@ -238,10 +258,7 @@
       html += '<div class="basket-card' + (c.isBest ? ' best' : '') + '">' +
         '<div class="basket-top">' +
           '<span class="basket-sym">' + (c.isBest ? '<span class="star">⭐</span>' : '') + r.Symbol + '</span>' +
-          '<span>' +
-            '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
-            (r.Source === "Scanner-Cash" ? '<span class="cash-badge">Cash</span>' : '') +
-          '</span>' +
+          '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
         '</div>' +
         '<div class="basket-grid">' +
           '<div><div class="g-label">Qty</div><div class="g-val">' + c.qty + '</div></div>' +
@@ -267,7 +284,30 @@
     });
   }
 
+  function updateSegmentUI() {
+    var tfRow = document.getElementById("tfChips");
+    var tfLabel = document.getElementById("tfLabel");
+    if (currentSegment === "fo") {
+      tfRow.style.display = "";
+      tfLabel.style.display = "";
+    } else {
+      tfRow.style.display = "none";
+      tfLabel.style.display = "none";
+    }
+  }
+
   document.getElementById("amountInput").addEventListener("input", computeBasket);
+
+  document.querySelectorAll("#segChips .chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll("#segChips .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentSegment = chip.getAttribute("data-seg");
+      updateSegmentUI();
+      computeBasket();
+    });
+  });
+  updateSegmentUI();
 
   document.querySelectorAll("#tfChips .chip").forEach(function (chip) {
     chip.addEventListener("click", function () {
