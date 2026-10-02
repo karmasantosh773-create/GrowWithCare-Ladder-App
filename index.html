@@ -193,6 +193,7 @@
 
   // Timeframe -> ladder % (PLACEHOLDER - asli % baad mein decide honge)
   var TF_PCT = { day: 1.5625, week: 6.25, month: 25 };
+  var TF_LABEL = { day: "Daily Trade", week: "Weekly Trade", month: "Monthly Trade" };
   var currentTF = "week";
   var currentUniverse = "stocks";
   var currentProduct = "cash";
@@ -223,7 +224,7 @@
       .slice(0, MAX_BASKET);
 
     document.getElementById("summaryBar").innerHTML =
-      '<div>Threshold (placeholder)<b>' + threshold + '%</b></div>' +
+      '<div>Trade Type<b>' + TF_LABEL[currentTF] + '</b></div>' +
       '<div>Basket mein Stocks<b>' + candidates.length + '</b></div>' +
       '<div>Per-stock Amount<b>' + fmtRupee(candidates.length ? amount / candidates.length : 0) + '</b></div>';
 
