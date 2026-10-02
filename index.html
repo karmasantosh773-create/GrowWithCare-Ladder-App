@@ -62,18 +62,31 @@
     border-radius: 20px; padding: 9px 16px; font-size: 13px; cursor: pointer; white-space: nowrap;
   }
   .chip.active { color: var(--bg); background: var(--yellow); border-color: var(--yellow); font-weight: 700; }
+  .chip.disabled { opacity: 0.4; pointer-events: none; }
 
   .note { font-size: 11px; color: var(--muted); margin: 8px 2px 0; line-height: 1.5; }
 
+  .summary-bar {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .summary-bar b { color: var(--text); font-size: 15px; display: block; margin-top: 2px; }
+  .summary-bar b.profit { color: var(--green); }
+  .summary-bar b.risk { color: var(--red); }
+  .summary-horizon { grid-column: 1 / 3; text-align: center; font-size: 11px; color: var(--yellow); padding-top: 6px; border-top: 1px solid var(--border); margin-top: 2px; }
+
   .basket-card {
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 13px 14px; margin-bottom: 8px;
+    padding: 13px 14px; margin-bottom: 8px; position: relative;
   }
+  .basket-card.best { border-color: var(--yellow); }
   .basket-top { display: flex; justify-content: space-between; align-items: center; }
-  .basket-sym { font-weight: 700; font-size: 15px; }
-  .basket-reason { font-size: 10.5px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-  .reason-dip { background: rgba(34,197,94,0.15); color: var(--green); }
-  .reason-breakout { background: rgba(245,197,24,0.15); color: var(--yellow); }
+  .basket-sym { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+  .star { color: var(--yellow); font-size: 13px; }
+  .basket-side { font-size: 10.5px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .side-sell { background: rgba(239,68,68,0.15); color: var(--red); }
+  .side-buy { background: rgba(34,197,94,0.15); color: var(--green); }
   .basket-grid {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px;
   }
@@ -82,13 +95,11 @@
   .g-val { font-size: 13px; font-weight: 700; }
   .g-sl { color: var(--red); }
   .g-tgt { color: var(--green); }
-
-  .summary-bar {
-    display: flex; justify-content: space-between; background: var(--card);
-    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
-    font-size: 12px; color: var(--muted);
+  .basket-rupees {
+    display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--border); font-size: 11px; color: var(--muted);
   }
-  .summary-bar b { color: var(--text); font-size: 14px; display: block; margin-top: 2px; }
+  .basket-rupees b { color: var(--text); }
 
   .hist-card {
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
@@ -129,30 +140,18 @@
 
   <!-- ===== SCAN SCREEN ===== -->
   <section class="screen active" id="screen-scan">
-    <div class="section-label">Kitna lagana hai</div>
+    <div class="section-label">Har Stock mein kitna lagana hai</div>
     <div class="amount-box">
       <span class="rupee">₹</span>
-      <input id="amountInput" type="number" inputmode="numeric" placeholder="2,00,000" value="100000">
+      <input id="amountInput" type="number" inputmode="numeric" placeholder="40,000" value="40000">
     </div>
 
-    <div class="section-label">Kitne time ke liye</div>
+    <div class="section-label">Timeframe</div>
     <div class="chip-row" id="tfChips">
-      <div class="chip" data-tf="day">1 Din</div>
-      <div class="chip active" data-tf="week">1 Hafta</div>
-      <div class="chip" data-tf="month">1 Mahina</div>
+      <div class="chip disabled" data-tf="Daily">1 Din</div>
+      <div class="chip active" data-tf="Weekly">1 Hafta</div>
+      <div class="chip" data-tf="Monthly">1 Mahina</div>
     </div>
-
-    <div class="section-label">Kahan trade karna hai</div>
-    <div class="chip-row" id="universeChips">
-      <div class="chip active" data-u="stocks">Stocks</div>
-      <div class="chip" data-u="index">Index</div>
-    </div>
-    <div class="chip-row" id="productChips" style="margin-top:8px;">
-      <div class="chip active" data-p="cash">Cash (sirf Buy)</div>
-      <div class="chip" data-p="options">Options</div>
-      <div class="chip" data-p="futures">Futures</div>
-    </div>
-    <div class="note" id="productNote"></div>
 
     <div class="summary-bar" id="summaryBar"></div>
 
@@ -189,87 +188,75 @@
 </nav>
 
 <script>
-  var DATA_URL = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec?format=json";
+  var DATA_URL = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec?format=json&tab=signals";
 
-  // Timeframe -> ladder % (PLACEHOLDER - asli % baad mein decide honge)
-  var TF_PCT = { day: 1.5625, week: 6.25, month: 25 };
-  var TF_LABEL = { day: "Daily Trade", week: "Weekly Trade", month: "Monthly Trade" };
-  var currentTF = "week";
-  var currentUniverse = "stocks";
-  var currentProduct = "cash";
-  var ALL_ROWS = [];
-  var MAX_BASKET = 10;
+  var TF_HORIZON = { Daily: "~1 din", Weekly: "~3 mahine", Monthly: "~1 mahina" };
+  var currentTF = "Weekly";
+  var ALL_SIGNALS = [];
 
   function fmtNum(v) {
     if (v === "" || v === null || typeof v === "undefined" || isNaN(v)) return "-";
     return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
-  function fmtRupee(v) { return "₹" + fmtNum(v); }
+  function fmtRupee(v) { return "₹" + fmtNum(Math.round(v)); }
 
   function computeBasket() {
-    var threshold = TF_PCT[currentTF];
-    var slPct = threshold / 4;
     var amount = parseFloat(document.getElementById("amountInput").value) || 0;
+    var rows = ALL_SIGNALS.filter(function (r) { return r.Timeframe === currentTF; });
+    // Rank: sabse CHHOTA SL% sabse accha (tightest risk) - usi ko star milega
+    rows = rows.slice().sort(function (a, b) { return Number(a.SL_Pct) - Number(b.SL_Pct); });
 
-    var candidates = ALL_ROWS
-      .map(function (r) {
-        var drop = Number(r.Drawdown_Pct), rise = Number(r.Rise_Pct);
-        var reason = null, score = 0;
-        if (drop >= threshold) { reason = "dip"; score = drop; }
-        if (rise >= threshold && rise > (reason ? score : -1)) { reason = "breakout"; score = rise; }
-        return reason ? { row: r, reason: reason, score: score } : null;
-      })
-      .filter(Boolean)
-      .sort(function (a, b) { return b.score - a.score; })
-      .slice(0, MAX_BASKET);
+    var totalCapital = 0, totalRisk = 0, totalProfit = 0;
+    var cards = rows.map(function (r, idx) {
+      var entry = Number(r.Entry), sl = Number(r.SL), target = Number(r.Target);
+      var qty = entry > 0 ? Math.floor(amount / entry) : 0;
+      var riskRs = qty * Math.abs(entry - sl);
+      var profitRs = qty * Math.abs(target - entry);
+      totalCapital += qty * entry;
+      totalRisk += riskRs;
+      totalProfit += profitRs;
+      return { r: r, qty: qty, riskRs: riskRs, profitRs: profitRs, isBest: idx === 0 };
+    });
 
     document.getElementById("summaryBar").innerHTML =
-      '<div>Trade Type<b>' + TF_LABEL[currentTF] + '</b></div>' +
-      '<div>Basket mein Stocks<b>' + candidates.length + '</b></div>' +
-      '<div>Per-stock Amount<b>' + fmtRupee(candidates.length ? amount / candidates.length : 0) + '</b></div>';
+      '<div>Stocks<b>' + cards.length + '</b></div>' +
+      '<div>Kul Capital<b>' + fmtRupee(totalCapital) + '</b></div>' +
+      '<div>Max Risk (sab SL lagein)<b class="risk">' + fmtRupee(totalRisk) + '</b></div>' +
+      '<div>Max Profit (sab Target hit)<b class="profit">' + fmtRupee(totalProfit) + '</b></div>' +
+      '<div class="summary-horizon">Agar poora basket hit hota hai, potential samay: ' + (TF_HORIZON[currentTF] || "-") + '</div>';
 
     var container = document.getElementById("basketList");
-    if (candidates.length === 0) {
-      container.innerHTML = '<div class="empty">Abhi is timeframe par koi stock basket mein nahi hai.</div>';
+    if (cards.length === 0) {
+      container.innerHTML = '<div class="empty">Abhi is timeframe mein koi Approved signal nahi hai.</div>';
       return;
     }
 
-    var perStockAmt = amount / candidates.length;
     var html = "";
-    candidates.forEach(function (c) {
-      var r = c.row;
-      var cmp = Number(r.CMP);
-      var qty = cmp > 0 ? Math.floor(perStockAmt / cmp) : 0;
-      var sl = cmp * (1 - slPct / 100);
-      var tgt = cmp * (1 + threshold / 100);
-      html += '<div class="basket-card">' +
+    cards.forEach(function (c) {
+      var r = c.r;
+      html += '<div class="basket-card' + (c.isBest ? ' best' : '') + '">' +
         '<div class="basket-top">' +
-          '<span class="basket-sym">' + r.Symbol + '</span>' +
-          '<span class="basket-reason ' + (c.reason === "dip" ? "reason-dip" : "reason-breakout") + '">' +
-            (c.reason === "dip" ? "ATH se dip" : "Low se breakout") + '</span>' +
+          '<span class="basket-sym">' + (c.isBest ? '<span class="star">⭐</span>' : '') + r.Symbol + '</span>' +
+          '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
         '</div>' +
         '<div class="basket-grid">' +
-          '<div><div class="g-label">Qty</div><div class="g-val">' + qty + '</div></div>' +
-          '<div><div class="g-label">Entry</div><div class="g-val">' + fmtNum(cmp) + '</div></div>' +
-          '<div><div class="g-label">SL</div><div class="g-val g-sl">' + fmtNum(sl) + '</div></div>' +
-          '<div><div class="g-label">Target</div><div class="g-val g-tgt">' + fmtNum(tgt) + '</div></div>' +
+          '<div><div class="g-label">Qty</div><div class="g-val">' + c.qty + '</div></div>' +
+          '<div><div class="g-label">Entry</div><div class="g-val">' + fmtNum(r.Entry) + '</div></div>' +
+          '<div><div class="g-label">SL</div><div class="g-val g-sl">' + fmtNum(r.SL) + '</div></div>' +
+          '<div><div class="g-label">Target</div><div class="g-val g-tgt">' + fmtNum(r.Target) + '</div></div>' +
+        '</div>' +
+        '<div class="basket-rupees">' +
+          '<span>Risk: <b style="color:var(--red)">' + fmtRupee(c.riskRs) + '</b></span>' +
+          '<span>Profit: <b style="color:var(--green)">' + fmtRupee(c.profitRs) + '</b></span>' +
         '</div>' +
       '</div>';
     });
     container.innerHTML = html;
   }
 
-  function updateProductNote() {
-    var note = "";
-    if (currentProduct === "cash") note = "Cash mein sirf BUY hoga, Short karne ka option nahi hai (carry-forward allowed nahi).";
-    if (currentProduct === "options") note = "Stock Options mein expiry hamesha Monthly rahegi (default).";
-    if (currentProduct === "futures") note = "Futures mein Buy aur Sell (Short), dono carry-forward ho sakte hain.";
-    document.getElementById("productNote").textContent = note;
-  }
-
   function loadData() {
     fetch(DATA_URL).then(function (res) { return res.json(); }).then(function (data) {
-      ALL_ROWS = data;
+      ALL_SIGNALS = data;
       computeBasket();
     }).catch(function () {
       document.getElementById("basketList").innerHTML = '<div class="empty">Data load nahi ho paya. Internet check karein.</div>';
@@ -280,26 +267,11 @@
 
   document.querySelectorAll("#tfChips .chip").forEach(function (chip) {
     chip.addEventListener("click", function () {
+      if (chip.classList.contains("disabled")) return;
       document.querySelectorAll("#tfChips .chip").forEach(function (c) { c.classList.remove("active"); });
       chip.classList.add("active");
       currentTF = chip.getAttribute("data-tf");
       computeBasket();
-    });
-  });
-  document.querySelectorAll("#universeChips .chip").forEach(function (chip) {
-    chip.addEventListener("click", function () {
-      document.querySelectorAll("#universeChips .chip").forEach(function (c) { c.classList.remove("active"); });
-      chip.classList.add("active");
-      currentUniverse = chip.getAttribute("data-u");
-      computeBasket();
-    });
-  });
-  document.querySelectorAll("#productChips .chip").forEach(function (chip) {
-    chip.addEventListener("click", function () {
-      document.querySelectorAll("#productChips .chip").forEach(function (c) { c.classList.remove("active"); });
-      chip.classList.add("active");
-      currentProduct = chip.getAttribute("data-p");
-      updateProductNote();
     });
   });
 
@@ -312,7 +284,6 @@
     });
   });
 
-  updateProductNote();
   loadData();
 
   if ("serviceWorker" in navigator) {
