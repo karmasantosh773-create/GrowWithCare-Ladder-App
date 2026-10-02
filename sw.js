@@ -18,13 +18,21 @@ self.addEventListener("activate", function (e) {
   self.clients.claim();
 });
 
+// 02 Oct 2026 FIX: pehle "cache-first" tha - matlab ek baar cache hone ke
+// baad, naya deploy karne par bhi PURANA hi dikhta rehta tha (jab tak
+// user khud hard-refresh na kare). Ab "network-first" - hamesha pehle
+// internet se naya mangwao, sirf OFFLINE hone par hi purana cache dikhao.
 self.addEventListener("fetch", function (e) {
   // Live data (Apps Script URL) hamesha network se mangwao, kabhi cache mat karo
   if (e.request.url.indexOf("script.google.com") >= 0) return;
 
   e.respondWith(
-    caches.match(e.request).then(function (cached) {
-      return cached || fetch(e.request);
+    fetch(e.request).then(function (fresh) {
+      var copy = fresh.clone();
+      caches.open(CACHE_NAME).then(function (cache) { cache.put(e.request, copy); });
+      return fresh;
+    }).catch(function () {
+      return caches.match(e.request);
     })
   );
 });
