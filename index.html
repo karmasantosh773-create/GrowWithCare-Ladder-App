@@ -238,6 +238,13 @@
 
   <!-- ===== HISTORY SCREEN ===== -->
   <section class="screen" id="screen-history">
+    <div class="section-label">Strategy</div>
+    <div class="chip-row" id="strategyChips">
+      <div class="chip active" data-strategy="all">All</div>
+      <div class="chip" data-strategy="Scalp">Scalp</div>
+      <div class="chip" data-strategy="Ladder">Weekly / Monthly</div>
+    </div>
+    <div class="section-label" style="margin-top:14px;">Period</div>
     <div class="chip-row" id="periodChips">
       <div class="chip active" data-period="day">Latest Day</div>
       <div class="chip" data-period="week">Last 7 Days</div>
@@ -278,6 +285,7 @@
   var currentTF = "Weekly";
   var currentSegment = "fo";
   var currentPeriod = "day";
+  var currentStrategy = "all";
   var ALL_SIGNALS = [];   // ab isme Pending/Approved/Rejected sab aata hai (all=1)
   var SCALP_DATA = [];
   var SCALP_TRADES_DATA = [];
@@ -494,21 +502,29 @@
     return d.toISOString().slice(0, 10);
   }
 
-  function computePerformance(fromDate, toDate) {
-    var result = { totalRupee: 0, totalTrades: 0, bySegment: {} };
+  function computePerformance(fromDate, toDate, strategyFilter) {
+    // Capital: har (strategy + symbol) ka apna Rs 50,000 bucket hai, jo
+    // us symbol/strategy ke apne trades ke beech ROTATE hota hai (ek
+    // samay par sirf ek trade khula rehta hai, isliye trade-COUNT se
+    // multiply nahi karna - sirf DISTINCT (strategy,symbol) buckets ginne
+    // hain, chahe us bucket ne us window mein 1 trade kiya ho ya 50).
+    var result = { totalRupee: 0, totalTrades: 0, bySegment: {}, capitalKeys: {} };
 
-    function addTo(segment, strategy, rupee) {
+    function addTo(segment, strategy, symbol, rupee) {
+      var isScalp = strategy === "Scalp";
+      if (strategyFilter !== "all" && strategyFilter !== (isScalp ? "Scalp" : "Ladder")) return;
       if (!result.bySegment[segment]) result.bySegment[segment] = {};
       if (!result.bySegment[segment][strategy]) result.bySegment[segment][strategy] = { rupee: 0, trades: 0 };
       result.bySegment[segment][strategy].rupee += rupee;
       result.bySegment[segment][strategy].trades += 1;
       result.totalRupee += rupee;
       result.totalTrades += 1;
+      result.capitalKeys[strategy + "|" + symbol] = true;
     }
 
     SCALP_TRADES_DATA.forEach(function (r) {
       if (r.ExitDate >= fromDate && r.ExitDate <= toDate) {
-        addTo(r.Segment, "Scalp", Number(r.RupeePnL));
+        addTo(r.Segment, "Scalp", r.Symbol, Number(r.RupeePnL));
       }
     });
 
@@ -521,9 +537,10 @@
       var realizedPct = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) / entry * 100;
       var rupee = realizedPct / 100 * 50000;
       var segment = SOURCE_SEGMENT[r.Source] || "F&O";
-      addTo(segment, r.Timeframe, rupee);
+      addTo(segment, r.Timeframe, r.Symbol, rupee);
     });
 
+    result.capital = Object.keys(result.capitalKeys).length * 50000;
     return result;
   }
 
@@ -544,17 +561,18 @@
     if (currentPeriod === "week") { fromDate = daysBack(latest, 7); label = "Last 7 Days"; }
     if (currentPeriod === "month") { fromDate = daysBack(latest, 30); label = "Last 30 Days"; }
 
-    var perf = computePerformance(fromDate, latest);
+    var perf = computePerformance(fromDate, latest, currentStrategy);
 
     var html = '<div class="hist-card"><span class="hist-label">' + label + ' - Total P&amp;L</span>' +
       '<span class="hist-val" style="color:' + (perf.totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(perf.totalRupee) + '</span></div>' +
       '<div class="hist-card"><span class="hist-label">Trades Closed</span><span class="hist-val">' + perf.totalTrades + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Capital Deployed (approx, Rs 50,000/trade)</span>' +
-      '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(perf.totalTrades * 50000) + '</span></div>';
+      '<div class="hist-card"><span class="hist-label">Capital Deployed (Rs 50,000 per stock, rotated)</span>' +
+      '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(perf.capital) + '</span></div>';
 
     var segments = Object.keys(perf.bySegment);
     if (segments.length === 0) {
-      html += '<div class="note" style="margin-top:10px;">No closed trades in this period.</div>';
+      html += '<div class="note" style="margin-top:10px;">No closed trades in this period' +
+        (currentStrategy !== "all" ? " for " + currentStrategy : "") + '.</div>';
     }
     segments.sort().forEach(function (seg) {
       html += '<div class="section-label" style="margin-top:16px;">' + seg + ' Segment</div>';
@@ -568,10 +586,11 @@
       });
     });
 
-    var CASH_SEGMENTS = ["Cash"];
-    var hasCashScalp = segments.indexOf("Cash") >= 0 && perf.bySegment["Cash"]["Scalp"];
-    if (!hasCashScalp) {
-      html += '<div class="note" style="margin-top:14px;">Cash-segment Scalp data is not available yet.</div>';
+    if (currentStrategy !== "Ladder") {
+      var hasCashScalp = segments.indexOf("Cash") >= 0 && perf.bySegment["Cash"] && perf.bySegment["Cash"]["Scalp"];
+      if (!hasCashScalp) {
+        html += '<div class="note" style="margin-top:14px;">Cash-segment Scalp data is not available yet.</div>';
+      }
     }
 
     container.innerHTML = html;
@@ -582,6 +601,15 @@
       document.querySelectorAll("#periodChips .chip").forEach(function (c) { c.classList.remove("active"); });
       chip.classList.add("active");
       currentPeriod = chip.getAttribute("data-period");
+      renderPerformance();
+    });
+  });
+
+  document.querySelectorAll("#strategyChips .chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll("#strategyChips .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentStrategy = chip.getAttribute("data-strategy");
       renderPerformance();
     });
   });
