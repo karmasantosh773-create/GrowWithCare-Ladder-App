@@ -238,24 +238,13 @@
 
   <!-- ===== HISTORY SCREEN ===== -->
   <section class="screen" id="screen-history">
-    <div class="section-label">Scalp - September 2026 ka Asli Result</div>
-    <div id="scalpHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
-    <div class="note">Yeh 5-min ke asli data par chalaya gaya backtest hai (01-30 Sept 2026, Peak-Drawdown-Ladder strategy, Rs 50,000/stock maan kar) - koi anumaan nahi, poore mahine ke actual trades.</div>
-
-    <div class="section-label" style="margin-top:20px;">Nifty / BankNifty - Weekly/Monthly Last Month Report</div>
-    <div id="indexHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
-
-    <div class="section-label" style="margin-top:20px;">Returns (F&amp;O Stocks / Cash)</div>
-    <div class="hist-card"><span class="hist-label">Kal ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
-    <div class="hist-card"><span class="hist-label">Is hafte ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
-    <div class="hist-card"><span class="hist-label">Is mahine ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
-
-    <div class="section-label">Signal Track Record</div>
-    <div class="hist-card"><span class="hist-label">Kul Signal bane</span><span class="hist-val" style="color:var(--muted)">-</span></div>
-    <div class="hist-card"><span class="hist-label">Target Hit</span><span class="hist-val" style="color:var(--muted)">-</span></div>
-    <div class="hist-card"><span class="hist-label">Stop-Loss Hit</span><span class="hist-val" style="color:var(--muted)">-</span></div>
-
-    <div class="note" style="margin-top:12px;">Yeh section abhi khaali hai — jab roz ka scan live chalega, tabhi yahan asli history dikhni shuru hogi.</div>
+    <div class="chip-row" id="periodChips">
+      <div class="chip active" data-period="day">Latest Day</div>
+      <div class="chip" data-period="week">Last 7 Days</div>
+      <div class="chip" data-period="month">Last 30 Days</div>
+    </div>
+    <div id="perfReport" style="margin-top:14px;"><div class="loading">Loading...</div></div>
+    <div class="note">Based on actual backtested trades (Weekly/Monthly ladder signals + Scalp, Rs 50,000 per position). Scalp Cash-segment data not available yet.</div>
   </section>
 
   <!-- ===== ABOUT SCREEN ===== -->
@@ -283,14 +272,15 @@
   var WEBAPP_BASE = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec";
   var DATA_URL = WEBAPP_BASE + "?format=json&tab=signals&all=1";
   var SCALP_URL = WEBAPP_BASE + "?format=json&tab=scalp";
-  var SCALP_ACTUAL_URL = WEBAPP_BASE + "?format=json&tab=scalpactual";
+  var SCALP_TRADES_URL = WEBAPP_BASE + "?format=json&tab=scalptrades";
 
   var TF_HORIZON = { Daily: "~1 din", Weekly: "~1 mahina", Monthly: "~3 mahine" };
   var currentTF = "Weekly";
   var currentSegment = "fo";
+  var currentPeriod = "day";
   var ALL_SIGNALS = [];   // ab isme Pending/Approved/Rejected sab aata hai (all=1)
   var SCALP_DATA = [];
-  var SCALP_ACTUAL_DATA = [];
+  var SCALP_TRADES_DATA = [];
 
   function fmtNum(v) {
     if (v === "" || v === null || typeof v === "undefined" || isNaN(v)) return "-";
@@ -363,19 +353,19 @@
     fetch(DATA_URL).then(function (res) { return res.json(); }).then(function (data) {
       ALL_SIGNALS = data;
       computeBasket();
-      renderIndexHistory();
+      renderPerformance();
     }).catch(function () {
-      document.getElementById("basketList").innerHTML = '<div class="empty">Data load nahi ho paya. Internet check karein.</div>';
+      document.getElementById("basketList").innerHTML = '<div class="empty">Could not load data. Check your internet connection.</div>';
     });
     fetch(SCALP_URL).then(function (res) { return res.json(); }).then(function (data) {
       SCALP_DATA = data;
       doLookup();
     }).catch(function () {});
-    fetch(SCALP_ACTUAL_URL).then(function (res) { return res.json(); }).then(function (data) {
-      SCALP_ACTUAL_DATA = data;
-      renderScalpHistory();
+    fetch(SCALP_TRADES_URL).then(function (res) { return res.json(); }).then(function (data) {
+      SCALP_TRADES_DATA = data;
+      renderPerformance();
     }).catch(function () {
-      document.getElementById("scalpHistoryReport").innerHTML = '<div class="empty">Data load nahi ho paya.</div>';
+      document.getElementById("perfReport").innerHTML = '<div class="empty">Could not load data.</div>';
     });
   }
 
@@ -481,85 +471,114 @@
 
   document.getElementById("lookupInput").addEventListener("input", doLookup);
 
-  // ===== HISTORY TAB - Scalp ka September-2026 ka ASLI (backtest-verified) result =====
-  function renderScalpHistory() {
-    var container = document.getElementById("scalpHistoryReport");
-    if (SCALP_ACTUAL_DATA.length === 0) {
-      container.innerHTML = '<div class="empty">Data load nahi ho paya.</div>';
+  // ===== HISTORY TAB - unified Performance report (trade-log based) =====
+  // Anchored to the LATEST date we actually have data for (not device "today"),
+  // so weekends/holidays with no trading don't show up as empty.
+  function latestDataDate() {
+    var dates = [];
+    SCALP_TRADES_DATA.forEach(function (r) { dates.push(r.ExitDate); });
+    ALL_SIGNALS.forEach(function (r) { if (r.Exit_Date) dates.push(r.Exit_Date); if (r.Date) dates.push(r.Date); });
+    if (dates.length === 0) return null;
+    return dates.sort().slice(-1)[0];
+  }
+
+  function daysBack(dateStr, n) {
+    var d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function computePerformance(fromDate, toDate) {
+    var result = { totalRupee: 0, totalTrades: 0, bySegment: {} };
+
+    function addTo(segment, strategy, rupee) {
+      if (!result.bySegment[segment]) result.bySegment[segment] = {};
+      if (!result.bySegment[segment][strategy]) result.bySegment[segment][strategy] = { rupee: 0, trades: 0 };
+      result.bySegment[segment][strategy].rupee += rupee;
+      result.bySegment[segment][strategy].trades += 1;
+      result.totalRupee += rupee;
+      result.totalTrades += 1;
+    }
+
+    SCALP_TRADES_DATA.forEach(function (r) {
+      if (r.ExitDate >= fromDate && r.ExitDate <= toDate) {
+        addTo(r.Segment, "Scalp", Number(r.RupeePnL));
+      }
+    });
+
+    var SOURCE_SEGMENT = { "Scanner": "F&O", "Scanner-Cash": "Cash", "Scanner-Index": "Index" };
+    ALL_SIGNALS.forEach(function (r) {
+      if (r.Status !== "Approved") return;
+      if (r.Track_Status !== "SL Hit" && r.Track_Status !== "Target Hit") return;
+      if (!(r.Exit_Date >= fromDate && r.Exit_Date <= toDate)) return;
+      var entry = Number(r.Entry), exitPx = Number(r.Exit_Price || r.Last_Close);
+      var realizedPct = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) / entry * 100;
+      var rupee = realizedPct / 100 * 50000;
+      var segment = SOURCE_SEGMENT[r.Source] || "F&O";
+      addTo(segment, r.Timeframe, rupee);
+    });
+
+    return result;
+  }
+
+  function renderPerformance() {
+    var container = document.getElementById("perfReport");
+    if (SCALP_TRADES_DATA.length === 0 && ALL_SIGNALS.length === 0) {
+      container.innerHTML = '<div class="loading">Loading...</div>';
+      return;
+    }
+    var latest = latestDataDate();
+    if (!latest) {
+      container.innerHTML = '<div class="empty">No trade data yet.</div>';
       return;
     }
 
-    var totalRupee = 0, totalTrades = 0, totalWins = 0, totalLosses = 0, profitable = 0;
-    SCALP_ACTUAL_DATA.forEach(function (r) {
-      totalRupee += Number(r.RupeePnL);
-      totalTrades += Number(r.Trades);
-      totalWins += Number(r.Wins);
-      totalLosses += Number(r.Losses);
-      if (Number(r.RupeePnL) > 0) profitable++;
+    var fromDate = latest;
+    var label = "Latest Trading Day (" + latest + ")";
+    if (currentPeriod === "week") { fromDate = daysBack(latest, 7); label = "Last 7 Days"; }
+    if (currentPeriod === "month") { fromDate = daysBack(latest, 30); label = "Last 30 Days"; }
+
+    var perf = computePerformance(fromDate, latest);
+
+    var html = '<div class="hist-card"><span class="hist-label">' + label + ' - Total P&amp;L</span>' +
+      '<span class="hist-val" style="color:' + (perf.totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(perf.totalRupee) + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">Trades Closed</span><span class="hist-val">' + perf.totalTrades + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">Capital Deployed (approx, Rs 50,000/trade)</span>' +
+      '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(perf.totalTrades * 50000) + '</span></div>';
+
+    var segments = Object.keys(perf.bySegment);
+    if (segments.length === 0) {
+      html += '<div class="note" style="margin-top:10px;">No closed trades in this period.</div>';
+    }
+    segments.sort().forEach(function (seg) {
+      html += '<div class="section-label" style="margin-top:16px;">' + seg + ' Segment</div>';
+      var strategies = perf.bySegment[seg];
+      Object.keys(strategies).forEach(function (strat) {
+        var s = strategies[strat];
+        html += '<div class="lookup-card"><div class="lookup-row-top">' +
+          '<span class="lookup-tf">' + strat + '</span>' +
+          '<span class="basket-side ' + (s.rupee >= 0 ? 'side-buy' : 'side-sell') + '">' + fmtRupee(s.rupee) + '</span></div>' +
+          '<div class="lookup-detail">' + s.trades + ' trades closed</div></div>';
+      });
     });
 
-    var sorted = SCALP_ACTUAL_DATA.slice().sort(function (a, b) { return Number(b.RupeePnL) - Number(a.RupeePnL); });
-    var top5 = sorted.slice(0, 5);
-    var bottom5 = sorted.slice(-5).reverse();
-
-    var html = '<div class="hist-card"><span class="hist-label">' + SCALP_ACTUAL_DATA.length + ' stocks/index (Rs 50,000/ek) - Kul P&amp;L</span>' +
-      '<span class="hist-val" style="color:' + (totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(totalRupee) + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Kul Trades (Win/Loss)</span>' +
-      '<span class="hist-val">' + totalTrades + ' <span style="font-size:11px;color:var(--muted)">(' + totalWins + 'W / ' + totalLosses + 'L)</span></span></div>' +
-      '<div class="hist-card"><span class="hist-label">Profitable stocks</span>' +
-      '<span class="hist-val">' + profitable + ' / ' + SCALP_ACTUAL_DATA.length + '</span></div>';
-
-    html += '<div class="section-label" style="margin-top:14px;">Top 5 (September)</div>';
-    top5.forEach(function (r) {
-      html += '<div class="lookup-card"><div class="lookup-row-top">' +
-        '<span class="lookup-tf">' + r.Symbol + '</span>' +
-        '<span class="basket-side side-buy">' + fmtRupee(r.RupeePnL) + '</span></div>' +
-        '<div class="lookup-detail">' + r.Trades + ' trades &nbsp; WinRate <b>' + r.WinRate_Pct + '%</b> &nbsp; Return <b>' + r.TotalPct + '%</b></div></div>';
-    });
-    html += '<div class="section-label" style="margin-top:14px;">Bottom 5 (September)</div>';
-    bottom5.forEach(function (r) {
-      html += '<div class="lookup-card"><div class="lookup-row-top">' +
-        '<span class="lookup-tf">' + r.Symbol + '</span>' +
-        '<span class="basket-side side-sell">' + fmtRupee(r.RupeePnL) + '</span></div>' +
-        '<div class="lookup-detail">' + r.Trades + ' trades &nbsp; WinRate <b>' + r.WinRate_Pct + '%</b> &nbsp; Return <b>' + r.TotalPct + '%</b></div></div>';
-    });
-    container.innerHTML = html;
-  }
-
-  // ===== HISTORY TAB - Nifty/BankNifty Last Month Report =====
-  function renderIndexHistory() {
-    var container = document.getElementById("indexHistoryReport");
-    var rows = ALL_SIGNALS.filter(function (r) { return r.Source === "Scanner-Index"; });
-
-    if (rows.length === 0) {
-      container.innerHTML = '<div class="hist-card"><span class="hist-label">01 Sept se ab tak</span>' +
-        '<span class="hist-val" style="color:var(--muted)">0 trades bane</span></div>' +
-        '<div class="note">Is dauraan Nifty/BankNifty mein koi qualifying Weekly/Monthly signal nahi bana (hamara filter: SL max 2%).</div>';
-      return;
+    var CASH_SEGMENTS = ["Cash"];
+    var hasCashScalp = segments.indexOf("Cash") >= 0 && perf.bySegment["Cash"]["Scalp"];
+    if (!hasCashScalp) {
+      html += '<div class="note" style="margin-top:14px;">Cash-segment Scalp data is not available yet.</div>';
     }
 
-    var targetHit = rows.filter(function (r) { return r.Track_Status === "Target Hit"; }).length;
-    var slHit = rows.filter(function (r) { return r.Track_Status === "SL Hit"; }).length;
-    var running = rows.filter(function (r) { return r.Track_Status === "Running"; }).length;
-
-    var html = '<div class="hist-card"><span class="hist-label">01 Sept se ab tak - Kul Signal</span><span class="hist-val">' + rows.length + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Target Hit</span><span class="hist-val" style="color:var(--green)">' + targetHit + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">SL Hit</span><span class="hist-val" style="color:var(--red)">' + slHit + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Abhi Running</span><span class="hist-val" style="color:var(--yellow)">' + running + '</span></div>';
-
-    rows.sort(function (a, b) { return String(b.Date).localeCompare(String(a.Date)); }).forEach(function (r) {
-      html += '<div class="lookup-card"><div class="lookup-row-top">' +
-        '<span class="lookup-tf">' + r.Symbol + ' - ' + (r.Timeframe === "Monthly" ? "1 Mahina" : "1 Hafta") + '</span>' +
-        '<span class="lookup-badges">' +
-          '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
-          '<span class="badge ' + (TRACK_BADGE[r.Track_Status] || "") + '">' + (r.Track_Status || "-") + '</span>' +
-        '</span></div>' +
-        '<div class="lookup-detail">Entry <b>' + fmtNum(r.Entry) + '</b> &nbsp; SL <b>' + fmtNum(r.SL) + '</b> &nbsp; Target <b>' + fmtNum(r.Target) +
-        '</b> &nbsp; <span style="opacity:.7">(' + r.Date + (r.Exit_Date ? ' se ' + r.Exit_Date + ' tak' : '') + ')</span></div>' +
-        '</div>';
-    });
     container.innerHTML = html;
   }
+
+  document.querySelectorAll("#periodChips .chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll("#periodChips .chip").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentPeriod = chip.getAttribute("data-period");
+      renderPerformance();
+    });
+  });
 
   function updateSegmentUI() {
     var tfRow = document.getElementById("tfChips");
