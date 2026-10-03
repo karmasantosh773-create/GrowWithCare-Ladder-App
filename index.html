@@ -238,7 +238,10 @@
 
   <!-- ===== HISTORY SCREEN ===== -->
   <section class="screen" id="screen-history">
-    <div class="section-label">Returns</div>
+    <div class="section-label">Nifty / BankNifty - Last Month Report</div>
+    <div id="indexHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
+
+    <div class="section-label" style="margin-top:20px;">Returns (F&amp;O Stocks / Cash)</div>
     <div class="hist-card"><span class="hist-label">Kal ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
     <div class="hist-card"><span class="hist-label">Is hafte ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
     <div class="hist-card"><span class="hist-label">Is mahine ka Return</span><span class="hist-val" style="color:var(--muted)">Jald aayega</span></div>
@@ -290,19 +293,13 @@
   function fmtRupee(v) { return "₹" + fmtNum(Math.round(v)); }
 
   function computeBasket() {
-    if (currentSegment === "index") {
-      document.getElementById("summaryBar").innerHTML = "";
-      document.getElementById("basketList").innerHTML = '<div class="empty">Index (Nifty/BankNifty) scanner jald aayega.</div>';
-      return;
-    }
-
     var amount = parseFloat(document.getElementById("amountInput").value) || 0;
     var effectiveTF = currentSegment === "cash" ? "Monthly" : currentTF;
     var rows = ALL_SIGNALS.filter(function (r) {
       if (r.Status !== "Approved") return false;
-      var isCash = r.Source === "Scanner-Cash";
-      if (currentSegment === "cash" && !isCash) return false;
-      if (currentSegment === "fo" && isCash) return false;
+      if (currentSegment === "cash" && r.Source !== "Scanner-Cash") return false;
+      if (currentSegment === "fo" && r.Source !== "Scanner") return false;
+      if (currentSegment === "index" && r.Source !== "Scanner-Index") return false;
       return r.Timeframe === effectiveTF;
     });
     // Rank: sabse CHHOTA SL% sabse accha (tightest risk) - usi ko star milega
@@ -360,6 +357,7 @@
     fetch(DATA_URL).then(function (res) { return res.json(); }).then(function (data) {
       ALL_SIGNALS = data;
       computeBasket();
+      renderIndexHistory();
     }).catch(function () {
       document.getElementById("basketList").innerHTML = '<div class="empty">Data load nahi ho paya. Internet check karein.</div>';
     });
@@ -470,10 +468,45 @@
 
   document.getElementById("lookupInput").addEventListener("input", doLookup);
 
+  // ===== HISTORY TAB - Nifty/BankNifty Last Month Report =====
+  function renderIndexHistory() {
+    var container = document.getElementById("indexHistoryReport");
+    var rows = ALL_SIGNALS.filter(function (r) { return r.Source === "Scanner-Index"; });
+
+    if (rows.length === 0) {
+      container.innerHTML = '<div class="hist-card"><span class="hist-label">01 Sept se ab tak</span>' +
+        '<span class="hist-val" style="color:var(--muted)">0 trades bane</span></div>' +
+        '<div class="note">Is dauraan Nifty/BankNifty mein koi qualifying Weekly/Monthly signal nahi bana (hamara filter: SL max 2%).</div>';
+      return;
+    }
+
+    var targetHit = rows.filter(function (r) { return r.Track_Status === "Target Hit"; }).length;
+    var slHit = rows.filter(function (r) { return r.Track_Status === "SL Hit"; }).length;
+    var running = rows.filter(function (r) { return r.Track_Status === "Running"; }).length;
+
+    var html = '<div class="hist-card"><span class="hist-label">01 Sept se ab tak - Kul Signal</span><span class="hist-val">' + rows.length + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">Target Hit</span><span class="hist-val" style="color:var(--green)">' + targetHit + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">SL Hit</span><span class="hist-val" style="color:var(--red)">' + slHit + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">Abhi Running</span><span class="hist-val" style="color:var(--yellow)">' + running + '</span></div>';
+
+    rows.sort(function (a, b) { return String(b.Date).localeCompare(String(a.Date)); }).forEach(function (r) {
+      html += '<div class="lookup-card"><div class="lookup-row-top">' +
+        '<span class="lookup-tf">' + r.Symbol + ' - ' + (r.Timeframe === "Monthly" ? "1 Mahina" : "1 Hafta") + '</span>' +
+        '<span class="lookup-badges">' +
+          '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
+          '<span class="badge ' + (TRACK_BADGE[r.Track_Status] || "") + '">' + (r.Track_Status || "-") + '</span>' +
+        '</span></div>' +
+        '<div class="lookup-detail">Entry <b>' + fmtNum(r.Entry) + '</b> &nbsp; SL <b>' + fmtNum(r.SL) + '</b> &nbsp; Target <b>' + fmtNum(r.Target) +
+        '</b> &nbsp; <span style="opacity:.7">(' + r.Date + (r.Exit_Date ? ' se ' + r.Exit_Date + ' tak' : '') + ')</span></div>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  }
+
   function updateSegmentUI() {
     var tfRow = document.getElementById("tfChips");
     var tfLabel = document.getElementById("tfLabel");
-    if (currentSegment === "fo") {
+    if (currentSegment === "fo" || currentSegment === "index") {
       tfRow.style.display = "";
       tfLabel.style.display = "";
     } else {
