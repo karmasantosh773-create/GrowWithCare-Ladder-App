@@ -1,7 +1,7 @@
 {
   "name": "GWC F&O Ladder Scan",
   "short_name": "GWC Ladder",
-  "description": "NSE F&O stocks - ATH se 6.25%+ tooÑ‚Ðµ / Low se 6.25%+ uthe hue stocks ka live scan",
+  "description": "NSE F&O stocks - ATH se 6.25%+ tooте / Low se 6.25%+ uthe hue stocks ka live scan",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
