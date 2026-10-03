@@ -113,6 +113,47 @@
     padding: 12px 14px; font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 16px;
   }
 
+  .search-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    display: flex; align-items: center; padding: 4px 4px 4px 14px; margin-bottom: 14px;
+  }
+  .search-box .ic { color: var(--muted); font-size: 16px; margin-right: 4px; }
+  .search-box input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-size: 16px; padding: 12px 8px; outline: none; min-width: 0; text-transform: uppercase;
+  }
+  .lookup-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .lookup-sym { font-weight: 700; font-size: 17px; margin-bottom: 8px; }
+  .lookup-warn {
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: var(--red);
+    border-radius: 8px; padding: 9px 12px; font-size: 12px; margin-bottom: 10px; line-height: 1.5;
+  }
+  .lookup-row {
+    border-top: 1px solid var(--border); padding: 9px 0; font-size: 12.5px;
+  }
+  .lookup-row:first-of-type { border-top: none; }
+  .lookup-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .lookup-tf { font-weight: 700; color: var(--text); font-size: 13px; }
+  .lookup-badges { display: flex; gap: 6px; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .badge-pending { background: rgba(245,197,24,0.15); color: var(--yellow); }
+  .badge-approved { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-rejected { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-running { background: rgba(245,197,24,0.15); color: var(--yellow); }
+  .badge-slhit { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-targethit { background: rgba(34,197,94,0.15); color: var(--green); }
+  .lookup-detail { color: var(--muted); }
+  .lookup-detail b { color: var(--text); }
+  .scalp-card {
+    background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--muted); margin-bottom: 10px;
+  }
+  .scalp-card.no-fit { background: rgba(139,143,154,0.08); border-color: var(--border); }
+  .scalp-card b { color: var(--text); }
+
   .about-story { padding: 4px 2px 20px; }
   .about-story h2 { font-size: 18px; margin: 0 0 16px; color: var(--yellow); }
   .about-story p { font-size: 14px; line-height: 1.8; color: var(--text); margin: 0 0 16px; }
@@ -180,6 +221,21 @@
     </div>
   </section>
 
+  <!-- ===== LOOKUP SCREEN ===== -->
+  <section class="screen" id="screen-lookup">
+    <div class="section-label">Stock ka naam daalein</div>
+    <div class="search-box">
+      <span class="ic">🔎</span>
+      <input id="lookupInput" type="text" placeholder="e.g. HAL, TATASTEEL, BHEL">
+    </div>
+    <div id="lookupResults"><div class="empty">Koi stock ka naam type karein - sab timeframe (Scalp/Weekly/Monthly) ka status ek saath dikh jaayega.</div></div>
+    <div class="disclaimer">
+      ⚠️ Yeh sirf scanner ka record hai - jo signal "Rejected" hai wo bhi dikhega
+      (reference ke liye), par app ke "Scan" basket mein sirf Approved signal
+      hi aata hai.
+    </div>
+  </section>
+
   <!-- ===== HISTORY SCREEN ===== -->
   <section class="screen" id="screen-history">
     <div class="section-label">Returns</div>
@@ -211,17 +267,21 @@
 
 <nav class="tabbar">
   <button class="active" data-screen="scan"><span class="ic">🔍</span>Scan</button>
+  <button data-screen="lookup"><span class="ic">🔎</span>Lookup</button>
   <button data-screen="history"><span class="ic">📊</span>History</button>
   <button data-screen="about"><span class="ic">📖</span>About</button>
 </nav>
 
 <script>
-  var DATA_URL = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec?format=json&tab=signals";
+  var WEBAPP_BASE = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec";
+  var DATA_URL = WEBAPP_BASE + "?format=json&tab=signals&all=1";
+  var SCALP_URL = WEBAPP_BASE + "?format=json&tab=scalp";
 
   var TF_HORIZON = { Daily: "~1 din", Weekly: "~1 mahina", Monthly: "~3 mahine" };
   var currentTF = "Weekly";
   var currentSegment = "fo";
-  var ALL_SIGNALS = [];
+  var ALL_SIGNALS = [];   // ab isme Pending/Approved/Rejected sab aata hai (all=1)
+  var SCALP_DATA = [];
 
   function fmtNum(v) {
     if (v === "" || v === null || typeof v === "undefined" || isNaN(v)) return "-";
@@ -239,6 +299,7 @@
     var amount = parseFloat(document.getElementById("amountInput").value) || 0;
     var effectiveTF = currentSegment === "cash" ? "Monthly" : currentTF;
     var rows = ALL_SIGNALS.filter(function (r) {
+      if (r.Status !== "Approved") return false;
       var isCash = r.Source === "Scanner-Cash";
       if (currentSegment === "cash" && !isCash) return false;
       if (currentSegment === "fo" && isCash) return false;
@@ -302,7 +363,112 @@
     }).catch(function () {
       document.getElementById("basketList").innerHTML = '<div class="empty">Data load nahi ho paya. Internet check karein.</div>';
     });
+    fetch(SCALP_URL).then(function (res) { return res.json(); }).then(function (data) {
+      SCALP_DATA = data;
+    }).catch(function () {});
   }
+
+  // ===== LOOKUP (Portfolio Optimizer v1) =====
+  var STATUS_BADGE = { Pending: "badge-pending", Approved: "badge-approved", Rejected: "badge-rejected" };
+  var TRACK_BADGE = { Running: "badge-running", "SL Hit": "badge-slhit", "Target Hit": "badge-targethit" };
+  var TF_ORDER = { Monthly: 1, Weekly: 2, Daily: 3 };
+
+  function renderLookupCard(symbol) {
+    var sigRows = ALL_SIGNALS.filter(function (r) { return String(r.Symbol).toUpperCase() === symbol; });
+    var scalpRow = SCALP_DATA.filter(function (r) { return String(r.Symbol).toUpperCase() === symbol; })[0];
+
+    // Har Timeframe ke liye SABSE ZAROORI row chunenge - sirf "latest date"
+    // se nahi (warna ek ACTIVE Approved+Running trade ke upar aaj ka naya
+    // Pending signal aa kar use CHHUPA deta, jab ki Running trade dikhna
+    // zyada zaroori hai). Priority: Active(Approved+Running/khaali) >
+    // Pending > Closed(SL/Target Hit) > Rejected. Tie hone par naya Date jeetega.
+    function rowPriority(r) {
+      if (r.Status === "Approved" && r.Track_Status !== "SL Hit" && r.Track_Status !== "Target Hit") return 3;
+      if (r.Status === "Pending") return 2;
+      if (r.Status === "Approved") return 1; // SL/Target Hit - closed
+      return 0; // Rejected
+    }
+    var bestByTf = {};
+    sigRows.forEach(function (r) {
+      var key = r.Timeframe;
+      var cur = bestByTf[key];
+      if (!cur || rowPriority(r) > rowPriority(cur) ||
+          (rowPriority(r) === rowPriority(cur) && String(r.Date) > String(cur.Date))) {
+        bestByTf[key] = r;
+      }
+    });
+    var tfRows = Object.keys(bestByTf).map(function (k) { return bestByTf[k]; })
+      .sort(function (a, b) { return (TF_ORDER[a.Timeframe] || 9) - (TF_ORDER[b.Timeframe] || 9); });
+
+    if (!scalpRow && tfRows.length === 0) return "";
+
+    var html = '<div class="lookup-card"><div class="lookup-sym">' + symbol + '</div>';
+
+    // Cascading early-warning: agar ek timeframe ka ACTIVE (Approved+Running/khaali)
+    // Side, dusre (coarser) timeframe ke ACTIVE Side se ULTA hai, to warning dikhao.
+    var activeSides = tfRows.filter(function (r) {
+      return r.Status === "Approved" && r.Track_Status !== "SL Hit" && r.Track_Status !== "Target Hit";
+    }).map(function (r) { return r.Side; });
+    var uniqueSides = activeSides.filter(function (v, i, a) { return a.indexOf(v) === i; });
+    if (uniqueSides.length > 1) {
+      html += '<div class="lookup-warn">⚠️ Alag-alag timeframe par ULTI direction dikh rahi hai ' +
+        '(' + activeSides.join(' vs ') + ') - dono position saath rakhte waqt savdhani se dekhein, ' +
+        'yeh ek early-warning sanket ho sakta hai.</div>';
+    }
+
+    if (scalpRow) {
+      html += '<div class="scalp-card"><b>Scalp (5-min) fit ✅</b> — Rank #' + scalpRow.Rank +
+        ', SL ' + scalpRow.SL_Pct + '%, WinRate ' + scalpRow.WinRate_Pct + '%, ' +
+        '1-saal return ' + scalpRow.TotalPct_1yr + '%, ~' + fmtRupee(scalpRow.RupeePnL_Per_Year) + '/saal</div>';
+    } else {
+      html += '<div class="scalp-card no-fit">Scalp (chhote timeframe) ke liye volatility kaafi nahi hai - yahan trade na karein, bade timeframe (Weekly/Monthly) par dekhein.</div>';
+    }
+
+    if (tfRows.length === 0) {
+      html += '<div class="lookup-row lookup-detail">Weekly/Monthly mein abhi koi signal nahi hai.</div>';
+    }
+    tfRows.forEach(function (r) {
+      var tfName = r.Timeframe === "Monthly" ? "1 Mahina" : r.Timeframe === "Weekly" ? "1 Hafta" : r.Timeframe;
+      html += '<div class="lookup-row">' +
+        '<div class="lookup-row-top">' +
+          '<span class="lookup-tf">' + tfName + '</span>' +
+          '<span class="lookup-badges">' +
+            '<span class="badge ' + (STATUS_BADGE[r.Status] || "") + '">' + r.Status + '</span>' +
+            (r.Track_Status ? '<span class="badge ' + (TRACK_BADGE[r.Track_Status] || "") + '">' + r.Track_Status + '</span>' : '') +
+          '</span>' +
+        '</div>' +
+        '<div class="lookup-detail">' +
+          '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span> &nbsp; ' +
+          'Entry <b>' + fmtNum(r.Entry) + '</b> &nbsp; SL <b>' + fmtNum(r.SL) + '</b> &nbsp; Target <b>' + fmtNum(r.Target) + '</b>' +
+          (r.Last_Close ? ' &nbsp; | &nbsp; Last Close <b>' + fmtNum(r.Last_Close) + '</b>' : '') +
+          ' &nbsp; <span style="opacity:.7">(' + r.Date + ')</span>' +
+        '</div>' +
+      '</div>';
+    });
+
+    html += '</div>';
+    return html;
+  }
+
+  function doLookup() {
+    var q = document.getElementById("lookupInput").value.trim().toUpperCase();
+    var container = document.getElementById("lookupResults");
+    if (!q) {
+      container.innerHTML = '<div class="empty">Koi stock ka naam type karein - sab timeframe (Scalp/Weekly/Monthly) ka status ek saath dikh jaayega.</div>';
+      return;
+    }
+    var allSymbols = ALL_SIGNALS.map(function (r) { return String(r.Symbol).toUpperCase(); })
+      .concat(SCALP_DATA.map(function (r) { return String(r.Symbol).toUpperCase(); }));
+    var matches = allSymbols.filter(function (s, i, a) { return s.indexOf(q) >= 0 && a.indexOf(s) === i; });
+
+    if (matches.length === 0) {
+      container.innerHTML = '<div class="empty">"' + q + '" hamare scanner mein nahi mila.</div>';
+      return;
+    }
+    container.innerHTML = matches.map(renderLookupCard).join("");
+  }
+
+  document.getElementById("lookupInput").addEventListener("input", doLookup);
 
   function updateSegmentUI() {
     var tfRow = document.getElementById("tfChips");
