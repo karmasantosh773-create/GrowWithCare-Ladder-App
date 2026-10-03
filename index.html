@@ -238,9 +238,9 @@
 
   <!-- ===== HISTORY SCREEN ===== -->
   <section class="screen" id="screen-history">
-    <div class="section-label">Scalp - Is Mahine ka Anumaanit Return</div>
+    <div class="section-label">Scalp - September 2026 ka Asli Result</div>
     <div id="scalpHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
-    <div class="note">Yeh sirf 5-saal ke backtest ke saalaana average se nikala anumaan hai (saalaana return / 12) - is mahine ke ASLI trades nahi (uske liye 5-min live data chahiye, jo abhi cloud VM par hai, yahan nahi).</div>
+    <div class="note">Yeh 5-min ke asli data par chalaya gaya backtest hai (01-30 Sept 2026, Peak-Drawdown-Ladder strategy, Rs 50,000/stock maan kar) - koi anumaan nahi, poore mahine ke actual trades.</div>
 
     <div class="section-label" style="margin-top:20px;">Nifty / BankNifty - Weekly/Monthly Last Month Report</div>
     <div id="indexHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
@@ -283,12 +283,14 @@
   var WEBAPP_BASE = "https://script.google.com/macros/s/AKfycbwXhM7TY4yhe-pWyAgPZmB6UmPWC3H4FhiQWim4ibME0EuhAlTrW857ePJ45g19Fq-i/exec";
   var DATA_URL = WEBAPP_BASE + "?format=json&tab=signals&all=1";
   var SCALP_URL = WEBAPP_BASE + "?format=json&tab=scalp";
+  var SCALP_ACTUAL_URL = WEBAPP_BASE + "?format=json&tab=scalpactual";
 
   var TF_HORIZON = { Daily: "~1 din", Weekly: "~1 mahina", Monthly: "~3 mahine" };
   var currentTF = "Weekly";
   var currentSegment = "fo";
   var ALL_SIGNALS = [];   // ab isme Pending/Approved/Rejected sab aata hai (all=1)
   var SCALP_DATA = [];
+  var SCALP_ACTUAL_DATA = [];
 
   function fmtNum(v) {
     if (v === "" || v === null || typeof v === "undefined" || isNaN(v)) return "-";
@@ -367,6 +369,10 @@
     });
     fetch(SCALP_URL).then(function (res) { return res.json(); }).then(function (data) {
       SCALP_DATA = data;
+      doLookup();
+    }).catch(function () {});
+    fetch(SCALP_ACTUAL_URL).then(function (res) { return res.json(); }).then(function (data) {
+      SCALP_ACTUAL_DATA = data;
       renderScalpHistory();
     }).catch(function () {
       document.getElementById("scalpHistoryReport").innerHTML = '<div class="empty">Data load nahi ho paya.</div>';
@@ -475,36 +481,47 @@
 
   document.getElementById("lookupInput").addEventListener("input", doLookup);
 
-  // ===== HISTORY TAB - Scalp ka "is mahine ka anumaanit return" (saalaana/12) =====
+  // ===== HISTORY TAB - Scalp ka September-2026 ka ASLI (backtest-verified) result =====
   function renderScalpHistory() {
     var container = document.getElementById("scalpHistoryReport");
-    if (SCALP_DATA.length === 0) {
-      container.innerHTML = '<div class="empty">Scalp data load nahi ho paya.</div>';
+    if (SCALP_ACTUAL_DATA.length === 0) {
+      container.innerHTML = '<div class="empty">Data load nahi ho paya.</div>';
       return;
     }
 
-    var totalMonthlyRupee = 0, totalAnnualRupee = 0;
-    SCALP_DATA.forEach(function (r) {
-      totalMonthlyRupee += Number(r.RupeePnL_Per_Year) / 12;
-      totalAnnualRupee += Number(r.RupeePnL_Per_Year);
+    var totalRupee = 0, totalTrades = 0, totalWins = 0, totalLosses = 0, profitable = 0;
+    SCALP_ACTUAL_DATA.forEach(function (r) {
+      totalRupee += Number(r.RupeePnL);
+      totalTrades += Number(r.Trades);
+      totalWins += Number(r.Wins);
+      totalLosses += Number(r.Losses);
+      if (Number(r.RupeePnL) > 0) profitable++;
     });
 
-    var sorted = SCALP_DATA.slice().sort(function (a, b) { return Number(b.RupeePnL_Per_Year) - Number(a.RupeePnL_Per_Year); });
+    var sorted = SCALP_ACTUAL_DATA.slice().sort(function (a, b) { return Number(b.RupeePnL) - Number(a.RupeePnL); });
     var top5 = sorted.slice(0, 5);
+    var bottom5 = sorted.slice(-5).reverse();
 
-    var html = '<div class="hist-card"><span class="hist-label">' + SCALP_DATA.length + ' eligible stocks/index - Kul anumaanit (is mahine)</span>' +
-      '<span class="hist-val" style="color:var(--green)">' + fmtRupee(totalMonthlyRupee) + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Yahi, saalaana jod kar</span>' +
-      '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(totalAnnualRupee) + '/saal</span></div>';
+    var html = '<div class="hist-card"><span class="hist-label">' + SCALP_ACTUAL_DATA.length + ' stocks/index (Rs 50,000/ek) - Kul P&amp;L</span>' +
+      '<span class="hist-val" style="color:' + (totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(totalRupee) + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">Kul Trades (Win/Loss)</span>' +
+      '<span class="hist-val">' + totalTrades + ' <span style="font-size:11px;color:var(--muted)">(' + totalWins + 'W / ' + totalLosses + 'L)</span></span></div>' +
+      '<div class="hist-card"><span class="hist-label">Profitable stocks</span>' +
+      '<span class="hist-val">' + profitable + ' / ' + SCALP_ACTUAL_DATA.length + '</span></div>';
 
-    html += '<div class="section-label" style="margin-top:14px;">Top 5 (is mahine ke anumaanit return ke hisaab se)</div>';
+    html += '<div class="section-label" style="margin-top:14px;">Top 5 (September)</div>';
     top5.forEach(function (r) {
-      var monthly = Number(r.RupeePnL_Per_Year) / 12;
       html += '<div class="lookup-card"><div class="lookup-row-top">' +
         '<span class="lookup-tf">' + r.Symbol + '</span>' +
-        '<span class="basket-side side-buy">#' + r.Rank + '</span></div>' +
-        '<div class="lookup-detail">Is mahine ~<b style="color:var(--green)">' + fmtRupee(monthly) + '</b> &nbsp; ' +
-        'WinRate <b>' + r.WinRate_Pct + '%</b> &nbsp; SL <b>' + r.SL_Pct + '%</b></div></div>';
+        '<span class="basket-side side-buy">' + fmtRupee(r.RupeePnL) + '</span></div>' +
+        '<div class="lookup-detail">' + r.Trades + ' trades &nbsp; WinRate <b>' + r.WinRate_Pct + '%</b> &nbsp; Return <b>' + r.TotalPct + '%</b></div></div>';
+    });
+    html += '<div class="section-label" style="margin-top:14px;">Bottom 5 (September)</div>';
+    bottom5.forEach(function (r) {
+      html += '<div class="lookup-card"><div class="lookup-row-top">' +
+        '<span class="lookup-tf">' + r.Symbol + '</span>' +
+        '<span class="basket-side side-sell">' + fmtRupee(r.RupeePnL) + '</span></div>' +
+        '<div class="lookup-detail">' + r.Trades + ' trades &nbsp; WinRate <b>' + r.WinRate_Pct + '%</b> &nbsp; Return <b>' + r.TotalPct + '%</b></div></div>';
     });
     container.innerHTML = html;
   }
