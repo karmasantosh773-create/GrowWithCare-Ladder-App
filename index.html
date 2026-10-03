@@ -526,13 +526,29 @@
     return d.toISOString().slice(0, 10);
   }
 
+  // 03 Oct 2026 FIX: "distinct symbol count" capital overstated reality
+  // (Week/Month ka number almost instantly 100+ stocks tak pahunch jaata
+  // tha chahe wo stock us din 1 trade kare ya 6 - aur Week vs Month mein
+  // fark hi nahi padta tha). Asli zaroorat sirf utni hai jitne trades
+  // EK HI PAL par khule the (peak-concurrent) - isse Day/Week/Month ke
+  // beech sahi, dheere-dheere badhta number milta hai (verified: ek din
+  // ~43 concurrent, hafte mein ~52, mahine mein ~55 - stock-count jaisa
+  // turant plateau nahi hota).
+  function peakConcurrent(trades) {
+    var events = [];
+    trades.forEach(function (t) {
+      events.push([t.entryTime, 1]);
+      events.push([t.exitTime, -1]);
+    });
+    events.sort(function (a, b) { return a[0] < b[0] ? -1 : (a[0] > b[0] ? 1 : 0); });
+    var cur = 0, peak = 0;
+    events.forEach(function (e) { cur += e[1]; if (cur > peak) peak = cur; });
+    return peak;
+  }
+
   function computePerformance(fromDate, toDate, strategyFilter) {
-    // Capital: har (strategy + symbol) ka apna Rs 50,000 bucket hai, jo
-    // us symbol/strategy ke apne trades ke beech ROTATE hota hai (ek
-    // samay par sirf ek trade khula rehta hai, isliye trade-COUNT se
-    // multiply nahi karna - sirf DISTINCT (strategy,symbol) buckets ginne
-    // hain, chahe us bucket ne us window mein 1 trade kiya ho ya 50).
-    var result = { totalRupee: 0, totalTrades: 0, bySegment: {}, capitalKeys: {} };
+    var result = { totalRupee: 0, totalTrades: 0, bySegment: {}, ladderCapitalKeys: {} };
+    var scalpTradesForCapital = [];
 
     function addTo(segment, strategy, symbol, rupee) {
       var isScalp = strategy === "Scalp";
@@ -543,12 +559,15 @@
       result.bySegment[segment][strategy].trades += 1;
       result.totalRupee += rupee;
       result.totalTrades += 1;
-      result.capitalKeys[strategy + "|" + symbol] = true;
+      if (!isScalp) result.ladderCapitalKeys[strategy + "|" + symbol] = true;
     }
 
     SCALP_TRADES_DATA.forEach(function (r) {
       if (r.ExitDate >= fromDate && r.ExitDate <= toDate) {
         addTo(r.Segment, "Scalp", r.Symbol, Number(r.RupeePnL));
+        if (strategyFilter === "all" || strategyFilter === "Scalp") {
+          scalpTradesForCapital.push({ entryTime: r.EntryTime || r.EntryDate, exitTime: r.ExitTime || r.ExitDate });
+        }
       }
     });
 
@@ -564,7 +583,12 @@
       addTo(segment, r.Timeframe, r.Symbol, rupee);
     });
 
-    result.capital = Object.keys(result.capitalKeys).length * 50000;
+    // Scalp capital = peak-concurrent open positions (real-time overlap).
+    // Ladder (Weekly/Monthly) capital = distinct (Timeframe,Symbol) buckets
+    // (bahut kam trades hain abhi, overlap-calculation ki zaroorat nahi).
+    var scalpCapital = peakConcurrent(scalpTradesForCapital) * 50000;
+    var ladderCapital = Object.keys(result.ladderCapitalKeys).length * 50000;
+    result.capital = scalpCapital + ladderCapital;
     return result;
   }
 
@@ -590,7 +614,7 @@
     var html = '<div class="hist-card"><span class="hist-label">' + label + ' - Total P&amp;L</span>' +
       '<span class="hist-val" style="color:' + (perf.totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(perf.totalRupee) + '</span></div>' +
       '<div class="hist-card"><span class="hist-label">Trades Closed</span><span class="hist-val">' + perf.totalTrades + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Capital Deployed (Rs 50,000 per stock, rotated)</span>' +
+      '<div class="hist-card"><span class="hist-label">Capital Deployed (Rs 50,000 per peak-concurrent position)</span>' +
       '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(perf.capital) + '</span></div>';
 
     var segments = Object.keys(perf.bySegment);
