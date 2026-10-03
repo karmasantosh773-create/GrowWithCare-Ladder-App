@@ -475,9 +475,15 @@
   // Anchored to the LATEST date we actually have data for (not device "today"),
   // so weekends/holidays with no trading don't show up as empty.
   function latestDataDate() {
+    // Sirf ASLI closed-trade exit-dates se anchor karo - ek Pending signal
+    // ka "Date" (jis din woh cross detect hua) ek realized close nahi hai,
+    // use shaamil karne se "aaj" hi latest dikhne lagta hai (jabki aaj
+    // koi trade close hi nahi hua).
     var dates = [];
     SCALP_TRADES_DATA.forEach(function (r) { dates.push(r.ExitDate); });
-    ALL_SIGNALS.forEach(function (r) { if (r.Exit_Date) dates.push(r.Exit_Date); if (r.Date) dates.push(r.Date); });
+    ALL_SIGNALS.forEach(function (r) {
+      if (r.Exit_Date && (r.Track_Status === "SL Hit" || r.Track_Status === "Target Hit")) dates.push(r.Exit_Date);
+    });
     if (dates.length === 0) return null;
     return dates.sort().slice(-1)[0];
   }
