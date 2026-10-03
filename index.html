@@ -506,18 +506,22 @@
   // ===== HISTORY TAB - unified Performance report (trade-log based) =====
   // Anchored to the LATEST date we actually have data for (not device "today"),
   // so weekends/holidays with no trading don't show up as empty.
-  function latestDataDate() {
-    // Sirf ASLI closed-trade exit-dates se anchor karo - ek Pending signal
-    // ka "Date" (jis din woh cross detect hua) ek realized close nahi hai,
-    // use shaamil karne se "aaj" hi latest dikhne lagta hai (jabki aaj
-    // koi trade close hi nahi hua).
-    var dates = [];
-    SCALP_TRADES_DATA.forEach(function (r) { dates.push(r.ExitDate); });
-    ALL_SIGNALS.forEach(function (r) {
-      if (r.Exit_Date && (r.Track_Status === "SL Hit" || r.Track_Status === "Target Hit")) dates.push(r.Exit_Date);
-    });
-    if (dates.length === 0) return null;
-    return dates.sort().slice(-1)[0];
+  // 03 Oct 2026 FIX: Scalp aur Ladder (Weekly/Monthly) data ki apni-apni
+  // "latest date" ALAG hoti hai (Scalp abhi 01-Oct tak hai, Ladder ke
+  // closed trades 02-Oct tak ho sakte hain). Pehle EK hi shared "latest"
+  // use karte the - isse jis din Ladder ka close tha par Scalp ka nahi,
+  // "Latest Day" filter mein Scalp khaali dikhta tha (jabki data load hi
+  // ho chuka tha, bas us din Scalp mein kuch close hi nahi hua). Ab
+  // dono apni-apni latest date se anchor hote hain.
+  function latestScalpDate() {
+    var dates = SCALP_TRADES_DATA.map(function (r) { return r.ExitDate; });
+    return dates.length ? dates.sort().slice(-1)[0] : null;
+  }
+  function latestLadderDate() {
+    var dates = ALL_SIGNALS
+      .filter(function (r) { return r.Exit_Date && (r.Track_Status === "SL Hit" || r.Track_Status === "Target Hit"); })
+      .map(function (r) { return r.Exit_Date; });
+    return dates.length ? dates.sort().slice(-1)[0] : null;
   }
 
   function daysBack(dateStr, n) {
@@ -546,7 +550,7 @@
     return peak;
   }
 
-  function computePerformance(fromDate, toDate, strategyFilter) {
+  function computePerformance(scalpFrom, scalpTo, ladderFrom, ladderTo, strategyFilter) {
     var result = { totalRupee: 0, totalTrades: 0, bySegment: {}, ladderCapitalKeys: {} };
     var scalpTradesForCapital = [];
 
@@ -562,26 +566,30 @@
       if (!isScalp) result.ladderCapitalKeys[strategy + "|" + symbol] = true;
     }
 
-    SCALP_TRADES_DATA.forEach(function (r) {
-      if (r.ExitDate >= fromDate && r.ExitDate <= toDate) {
-        addTo(r.Segment, "Scalp", r.Symbol, Number(r.RupeePnL));
-        if (strategyFilter === "all" || strategyFilter === "Scalp") {
-          scalpTradesForCapital.push({ entryTime: r.EntryTime || r.EntryDate, exitTime: r.ExitTime || r.ExitDate });
+    if (scalpFrom && scalpTo) {
+      SCALP_TRADES_DATA.forEach(function (r) {
+        if (r.ExitDate >= scalpFrom && r.ExitDate <= scalpTo) {
+          addTo(r.Segment, "Scalp", r.Symbol, Number(r.RupeePnL));
+          if (strategyFilter === "all" || strategyFilter === "Scalp") {
+            scalpTradesForCapital.push({ entryTime: r.EntryTime || r.EntryDate, exitTime: r.ExitTime || r.ExitDate });
+          }
         }
-      }
-    });
+      });
+    }
 
-    var SOURCE_SEGMENT = { "Scanner": "F&O", "Scanner-Cash": "Cash", "Scanner-Index": "Index" };
-    ALL_SIGNALS.forEach(function (r) {
-      if (r.Status !== "Approved") return;
-      if (r.Track_Status !== "SL Hit" && r.Track_Status !== "Target Hit") return;
-      if (!(r.Exit_Date >= fromDate && r.Exit_Date <= toDate)) return;
-      var entry = Number(r.Entry), exitPx = Number(r.Exit_Price || r.Last_Close);
-      var realizedPct = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) / entry * 100;
-      var rupee = realizedPct / 100 * 50000;
-      var segment = SOURCE_SEGMENT[r.Source] || "F&O";
-      addTo(segment, r.Timeframe, r.Symbol, rupee);
-    });
+    if (ladderFrom && ladderTo) {
+      var SOURCE_SEGMENT = { "Scanner": "F&O", "Scanner-Cash": "Cash", "Scanner-Index": "Index" };
+      ALL_SIGNALS.forEach(function (r) {
+        if (r.Status !== "Approved") return;
+        if (r.Track_Status !== "SL Hit" && r.Track_Status !== "Target Hit") return;
+        if (!(r.Exit_Date >= ladderFrom && r.Exit_Date <= ladderTo)) return;
+        var entry = Number(r.Entry), exitPx = Number(r.Exit_Price || r.Last_Close);
+        var realizedPct = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) / entry * 100;
+        var rupee = realizedPct / 100 * 50000;
+        var segment = SOURCE_SEGMENT[r.Source] || "F&O";
+        addTo(segment, r.Timeframe, r.Symbol, rupee);
+      });
+    }
 
     // Scalp capital = peak-concurrent open positions (real-time overlap).
     // Ladder (Weekly/Monthly) capital = distinct (Timeframe,Symbol) buckets
@@ -598,18 +606,25 @@
       container.innerHTML = '<div class="loading">Loading...</div>';
       return;
     }
-    var latest = latestDataDate();
-    if (!latest) {
+    var scalpLatest = latestScalpDate();
+    var ladderLatest = latestLadderDate();
+    if (!scalpLatest && !ladderLatest) {
       container.innerHTML = '<div class="empty">No trade data yet.</div>';
       return;
     }
 
-    var fromDate = latest;
-    var label = "Latest Trading Day (" + latest + ")";
-    if (currentPeriod === "week") { fromDate = daysBack(latest, 7); label = "Last 7 Days"; }
-    if (currentPeriod === "month") { fromDate = daysBack(latest, 30); label = "Last 30 Days"; }
+    var periodDays = currentPeriod === "week" ? 7 : (currentPeriod === "month" ? 30 : 0);
+    var scalpFrom = scalpLatest ? (periodDays ? daysBack(scalpLatest, periodDays) : scalpLatest) : null;
+    var ladderFrom = ladderLatest ? (periodDays ? daysBack(ladderLatest, periodDays) : ladderLatest) : null;
 
-    var perf = computePerformance(fromDate, latest, currentStrategy);
+    var label = currentPeriod === "week" ? "Last 7 Days" : (currentPeriod === "month" ? "Last 30 Days" : "Latest Trading Day");
+    if (currentPeriod === "day") {
+      if (currentStrategy === "Scalp") label += " (" + scalpLatest + ")";
+      else if (currentStrategy === "Ladder") label += " (" + ladderLatest + ")";
+      else label += " (Scalp: " + (scalpLatest || "-") + " | Ladder: " + (ladderLatest || "-") + ")";
+    }
+
+    var perf = computePerformance(scalpFrom, scalpLatest, ladderFrom, ladderLatest, currentStrategy);
 
     var html = '<div class="hist-card"><span class="hist-label">' + label + ' - Total P&amp;L</span>' +
       '<span class="hist-val" style="color:' + (perf.totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(perf.totalRupee) + '</span></div>' +
