@@ -271,6 +271,7 @@
 <nav class="tabbar">
   <button class="active" data-screen="scan"><span class="ic">🔍</span>Scan</button>
   <button data-screen="lookup"><span class="ic">🔎</span>Lookup</button>
+  <button data-screen="history" id="navScalp"><span class="ic">⚡</span>Scalp</button>
   <button data-screen="history"><span class="ic">📊</span>History</button>
   <button data-screen="about"><span class="ic">📖</span>About</button>
 </nav>
@@ -357,23 +358,46 @@
     container.innerHTML = html;
   }
 
+  // 03 Oct 2026 FIX: plain fetch() has NO default timeout - agar Apps
+  // Script slow/hung ho jaaye (jo real mein hota hai kabhi-kabhi), to
+  // page hamesha ke liye "Loading..." par atka reh jaata tha, user ko
+  // kabhi error ya retry ka option hi nahi milta tha. Ab 20-second
+  // timeout + "retry" button.
+  var FETCH_TIMEOUT_MS = 20000;
+  function fetchWithTimeout(url) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT_MS);
+    return fetch(url, { signal: controller.signal }).finally(function () { clearTimeout(timer); });
+  }
+
+  function retryableError(elementId, msg) {
+    var el = document.getElementById(elementId);
+    if (el) {
+      el.innerHTML = '<div class="empty">' + msg + '<br><br>' +
+        '<span class="chip active" style="display:inline-block;" onclick="loadData()">Retry</span></div>';
+    }
+  }
+
   function loadData() {
-    fetch(DATA_URL).then(function (res) { return res.json(); }).then(function (data) {
+    document.getElementById("basketList").innerHTML = '<div class="loading">Loading...</div>';
+    document.getElementById("perfReport").innerHTML = '<div class="loading">Loading...</div>';
+
+    fetchWithTimeout(DATA_URL).then(function (res) { return res.json(); }).then(function (data) {
       ALL_SIGNALS = data;
       computeBasket();
       renderPerformance();
     }).catch(function () {
-      document.getElementById("basketList").innerHTML = '<div class="empty">Could not load data. Check your internet connection.</div>';
+      retryableError("basketList", "Could not load data (timed out or offline).");
     });
-    fetch(SCALP_URL).then(function (res) { return res.json(); }).then(function (data) {
+    fetchWithTimeout(SCALP_URL).then(function (res) { return res.json(); }).then(function (data) {
       SCALP_DATA = data;
       doLookup();
     }).catch(function () {});
-    fetch(SCALP_TRADES_URL).then(function (res) { return res.json(); }).then(function (data) {
+    fetchWithTimeout(SCALP_TRADES_URL).then(function (res) { return res.json(); }).then(function (data) {
       SCALP_TRADES_DATA = data;
       renderPerformance();
     }).catch(function () {
-      document.getElementById("perfReport").innerHTML = '<div class="empty">Could not load data.</div>';
+      retryableError("perfReport", "Could not load data (timed out or offline).");
     });
   }
 
@@ -655,6 +679,17 @@
       btn.classList.add("active");
       document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
       document.getElementById("screen-" + btn.getAttribute("data-screen")).classList.add("active");
+
+      // "Scalp" nav button = History screen ke saath jump, Strategy filter
+      // seedha "Scalp" par pre-set karke (History mein ghus kar chip dabana
+      // na pade)
+      if (btn.id === "navScalp") {
+        currentStrategy = "Scalp";
+        document.querySelectorAll("#strategyChips .chip").forEach(function (c) {
+          c.classList.toggle("active", c.getAttribute("data-strategy") === "Scalp");
+        });
+        renderPerformance();
+      }
     });
   });
 
