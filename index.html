@@ -238,7 +238,11 @@
 
   <!-- ===== HISTORY SCREEN ===== -->
   <section class="screen" id="screen-history">
-    <div class="section-label">Nifty / BankNifty - Last Month Report</div>
+    <div class="section-label">Scalp - Is Mahine ka Anumaanit Return</div>
+    <div id="scalpHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
+    <div class="note">Yeh sirf 5-saal ke backtest ke saalaana average se nikala anumaan hai (saalaana return / 12) - is mahine ke ASLI trades nahi (uske liye 5-min live data chahiye, jo abhi cloud VM par hai, yahan nahi).</div>
+
+    <div class="section-label" style="margin-top:20px;">Nifty / BankNifty - Weekly/Monthly Last Month Report</div>
     <div id="indexHistoryReport"><div class="loading">Data load ho raha hai...</div></div>
 
     <div class="section-label" style="margin-top:20px;">Returns (F&amp;O Stocks / Cash)</div>
@@ -363,7 +367,10 @@
     });
     fetch(SCALP_URL).then(function (res) { return res.json(); }).then(function (data) {
       SCALP_DATA = data;
-    }).catch(function () {});
+      renderScalpHistory();
+    }).catch(function () {
+      document.getElementById("scalpHistoryReport").innerHTML = '<div class="empty">Data load nahi ho paya.</div>';
+    });
   }
 
   // ===== LOOKUP (Portfolio Optimizer v1) =====
@@ -467,6 +474,40 @@
   }
 
   document.getElementById("lookupInput").addEventListener("input", doLookup);
+
+  // ===== HISTORY TAB - Scalp ka "is mahine ka anumaanit return" (saalaana/12) =====
+  function renderScalpHistory() {
+    var container = document.getElementById("scalpHistoryReport");
+    if (SCALP_DATA.length === 0) {
+      container.innerHTML = '<div class="empty">Scalp data load nahi ho paya.</div>';
+      return;
+    }
+
+    var totalMonthlyRupee = 0, totalAnnualRupee = 0;
+    SCALP_DATA.forEach(function (r) {
+      totalMonthlyRupee += Number(r.RupeePnL_Per_Year) / 12;
+      totalAnnualRupee += Number(r.RupeePnL_Per_Year);
+    });
+
+    var sorted = SCALP_DATA.slice().sort(function (a, b) { return Number(b.RupeePnL_Per_Year) - Number(a.RupeePnL_Per_Year); });
+    var top5 = sorted.slice(0, 5);
+
+    var html = '<div class="hist-card"><span class="hist-label">' + SCALP_DATA.length + ' eligible stocks/index - Kul anumaanit (is mahine)</span>' +
+      '<span class="hist-val" style="color:var(--green)">' + fmtRupee(totalMonthlyRupee) + '</span></div>' +
+      '<div class="hist-card"><span class="hist-label">Yahi, saalaana jod kar</span>' +
+      '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(totalAnnualRupee) + '/saal</span></div>';
+
+    html += '<div class="section-label" style="margin-top:14px;">Top 5 (is mahine ke anumaanit return ke hisaab se)</div>';
+    top5.forEach(function (r) {
+      var monthly = Number(r.RupeePnL_Per_Year) / 12;
+      html += '<div class="lookup-card"><div class="lookup-row-top">' +
+        '<span class="lookup-tf">' + r.Symbol + '</span>' +
+        '<span class="basket-side side-buy">#' + r.Rank + '</span></div>' +
+        '<div class="lookup-detail">Is mahine ~<b style="color:var(--green)">' + fmtRupee(monthly) + '</b> &nbsp; ' +
+        'WinRate <b>' + r.WinRate_Pct + '%</b> &nbsp; SL <b>' + r.SL_Pct + '%</b></div></div>';
+    });
+    container.innerHTML = html;
+  }
 
   // ===== HISTORY TAB - Nifty/BankNifty Last Month Report =====
   function renderIndexHistory() {
