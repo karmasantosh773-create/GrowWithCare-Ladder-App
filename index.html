@@ -182,7 +182,7 @@
   <div class="brand">
     <h1><span class="grow">Grow</span> With <span class="care">Care</span></h1>
   </div>
-  <p class="tagline">Aapke fund ki care, behtar result ki ummeed — profit guaranteed nahi hai.</p>
+  <p class="tagline">Care for your fund, hope for better results — profit is not guaranteed.</p>
 </header>
 
 <main>
@@ -196,7 +196,7 @@
       <div class="chip" data-seg="cash">Cash</div>
     </div>
 
-    <div class="section-label">Har Stock mein kitna lagana hai</div>
+    <div class="section-label">How much to invest per stock</div>
     <div class="amount-box">
       <span class="rupee">₹</span>
       <input id="amountInput" type="number" inputmode="numeric" placeholder="40,000" value="40000">
@@ -204,35 +204,34 @@
 
     <div class="section-label" id="tfLabel">Timeframe</div>
     <div class="chip-row" id="tfChips">
-      <div class="chip" data-tf="Daily">1 Din</div>
-      <div class="chip active" data-tf="Weekly">1 Hafta</div>
-      <div class="chip" data-tf="Monthly">1 Mahina</div>
+      <div class="chip" data-tf="Daily">1 Day</div>
+      <div class="chip active" data-tf="Weekly">1 Week</div>
+      <div class="chip" data-tf="Monthly">1 Month</div>
     </div>
 
     <div class="summary-bar" id="summaryBar"></div>
 
-    <div class="section-label">Aapka Basket</div>
-    <div id="basketList"><div class="loading">Data load ho raha hai...</div></div>
+    <div class="section-label">Your Basket</div>
+    <div id="basketList"><div class="loading">Loading data...</div></div>
 
     <div class="disclaimer">
-      ⚠️ Yeh sirf ek scanner hai, SEBI-registered advice nahi hai. Entry/SL/Target
-      ladder-logic se calculate hote hain, guaranteed profit ka koi vaada nahi.
-      Khud samajhkar, apni zimmedari par trade karein.
+      ⚠️ This is only a scanner, not SEBI-registered advice. Entry/SL/Target are
+      calculated from ladder-logic - there is no guarantee of profit.
+      Please understand the risk and trade at your own responsibility.
     </div>
   </section>
 
   <!-- ===== LOOKUP SCREEN ===== -->
   <section class="screen" id="screen-lookup">
-    <div class="section-label">Stock ka naam daalein</div>
+    <div class="section-label">Enter stock name</div>
     <div class="search-box">
       <span class="ic">🔎</span>
       <input id="lookupInput" type="text" placeholder="e.g. HAL, TATASTEEL, BHEL">
     </div>
-    <div id="lookupResults"><div class="empty">Koi stock ka naam type karein - sab timeframe (Scalp/Weekly/Monthly) ka status ek saath dikh jaayega.</div></div>
+    <div id="lookupResults"><div class="empty">Type a stock name - status across all timeframes (Scalp/Daily/Weekly/Monthly) will show together.</div></div>
     <div class="disclaimer">
-      ⚠️ Yeh sirf scanner ka record hai - jo signal "Rejected" hai wo bhi dikhega
-      (reference ke liye), par app ke "Scan" basket mein sirf Approved signal
-      hi aata hai.
+      ⚠️ This is only the scanner's record - a "Rejected" signal also shows here
+      (for reference), but only Approved signals appear in the app's "Scan" basket.
     </div>
   </section>
 
@@ -328,11 +327,11 @@
       '<div>Kul Capital<b>' + fmtRupee(totalCapital) + '</b></div>' +
       '<div>Max Risk (sab SL lagein)<b class="risk">' + fmtRupee(totalRisk) + '</b></div>' +
       '<div>Max Profit (sab Target hit)<b class="profit">' + fmtRupee(totalProfit) + '</b></div>' +
-      '<div class="summary-horizon">Agar poora basket hit hota hai, potential samay: ' + (TF_HORIZON[effectiveTF] || "-") + '</div>';
+      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (TF_HORIZON[effectiveTF] || "-") + '</div>';
 
     var container = document.getElementById("basketList");
     if (cards.length === 0) {
-      container.innerHTML = '<div class="empty">Abhi is timeframe mein koi Approved signal nahi hai.</div>';
+      container.innerHTML = '<div class="empty">No Approved signal in this timeframe right now.</div>';
       return;
     }
 
@@ -445,24 +444,24 @@
     }).map(function (r) { return r.Side; });
     var uniqueSides = activeSides.filter(function (v, i, a) { return a.indexOf(v) === i; });
     if (uniqueSides.length > 1) {
-      html += '<div class="lookup-warn">⚠️ Alag-alag timeframe par ULTI direction dikh rahi hai ' +
-        '(' + activeSides.join(' vs ') + ') - dono position saath rakhte waqt savdhani se dekhein, ' +
-        'yeh ek early-warning sanket ho sakta hai.</div>';
+      html += '<div class="lookup-warn">⚠️ Opposite directions are showing across different timeframes ' +
+        '(' + activeSides.join(' vs ') + ') - be careful if holding both positions together, ' +
+        'this could be an early-warning sign.</div>';
     }
 
     if (scalpRow) {
       html += '<div class="scalp-card"><b>Scalp (5-min) fit ✅</b> — Rank #' + scalpRow.Rank +
         ', SL ' + scalpRow.SL_Pct + '%, WinRate ' + scalpRow.WinRate_Pct + '%, ' +
-        '1-saal return ' + scalpRow.TotalPct_1yr + '%, ~' + fmtRupee(scalpRow.RupeePnL_Per_Year) + '/saal</div>';
+        '1-year return ' + scalpRow.TotalPct_1yr + '%, ~' + fmtRupee(scalpRow.RupeePnL_Per_Year) + '/year</div>';
     } else {
-      html += '<div class="scalp-card no-fit">Scalp (chhote timeframe) ke liye volatility kaafi nahi hai - yahan trade na karein, bade timeframe (Weekly/Monthly) par dekhein.</div>';
+      html += '<div class="scalp-card no-fit">Not enough volatility for Scalp (short timeframe) - don\'t trade here, check the bigger timeframe (Weekly/Monthly) instead.</div>';
     }
 
     if (tfRows.length === 0) {
-      html += '<div class="lookup-row lookup-detail">Weekly/Monthly mein abhi koi signal nahi hai.</div>';
+      html += '<div class="lookup-row lookup-detail">No signal in Weekly/Monthly right now.</div>';
     }
     tfRows.forEach(function (r) {
-      var tfName = r.Timeframe === "Monthly" ? "1 Mahina" : r.Timeframe === "Weekly" ? "1 Hafta" : r.Timeframe;
+      var tfName = r.Timeframe === "Monthly" ? "1 Month" : r.Timeframe === "Weekly" ? "1 Week" : r.Timeframe;
       html += '<div class="lookup-row">' +
         '<div class="lookup-row-top">' +
           '<span class="lookup-tf">' + tfName + '</span>' +
@@ -488,7 +487,7 @@
     var q = document.getElementById("lookupInput").value.trim().toUpperCase();
     var container = document.getElementById("lookupResults");
     if (!q) {
-      container.innerHTML = '<div class="empty">Koi stock ka naam type karein - sab timeframe (Scalp/Weekly/Monthly) ka status ek saath dikh jaayega.</div>';
+      container.innerHTML = '<div class="empty">Type a stock name - status across all timeframes (Scalp/Weekly/Monthly) will show together.</div>';
       return;
     }
     var allSymbols = ALL_SIGNALS.map(function (r) { return String(r.Symbol).toUpperCase(); })
@@ -496,7 +495,7 @@
     var matches = allSymbols.filter(function (s, i, a) { return s.indexOf(q) >= 0 && a.indexOf(s) === i; });
 
     if (matches.length === 0) {
-      container.innerHTML = '<div class="empty">"' + q + '" hamare scanner mein nahi mila.</div>';
+      container.innerHTML = '<div class="empty">"' + q + '" not found in our scanner.</div>';
       return;
     }
     container.innerHTML = matches.map(renderLookupCard).join("");
@@ -684,15 +683,15 @@
     var html = '<div class="hist-card"><span class="hist-label">' + label + ' - Total P&amp;L</span>' +
       '<span class="hist-val" style="color:' + (perf.totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(perf.totalRupee) + '</span></div>' +
       '<div class="hist-card"><span class="hist-label">Trades Closed</span><span class="hist-val">' + perf.totalTrades + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Capital Used - F&amp;O/Index closed trades is period mein (Cash/Scalp alag, neeche dekhein)</span>' +
+      '<div class="hist-card"><span class="hist-label">Capital Used - F&amp;O/Index closed trades in this period (Cash/Scalp shown separately below)</span>' +
       '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(perf.capital) + '</span></div>';
 
     // 04 Oct 2026 - Scalp abhi live-tracked nahi hai (sirf backtest
     // projection) - saaf bata dete hain, "no data" jaisa confusing nahi.
     if (currentStrategy === "Scalp") {
-      html += '<div class="note" style="margin-top:10px;">Scalp abhi ek backtested projection hai ' +
-        '(asli live-tracked trades nahi) - isliye History mein count nahi kiya ja raha. ' +
-        'Jab Scalp live-track hona shuru hoga, yahan dikhega.</div>';
+      html += '<div class="note" style="margin-top:10px;">Scalp is currently a backtested projection ' +
+        '(not real live-tracked trades) - so it is not counted in History yet. ' +
+        'It will show here once Scalp starts live-tracking.</div>';
     }
 
     var segments = Object.keys(perf.bySegment);
@@ -727,7 +726,7 @@
     var openCounts = openData.counts, openCapital = openData.capital;
     var openSegs = Object.keys(openCounts).sort();
     if (openSegs.length > 0) {
-      html += '<div class="section-label" style="margin-top:18px;">Abhi Open Trades (sabhi period se alag, live snapshot)</div>';
+      html += '<div class="section-label" style="margin-top:18px;">Open Trades Right Now (independent of period, live snapshot)</div>';
       openSegs.forEach(function (seg) {
         var tfs = openCounts[seg];
         var segTotal = Object.keys(tfs).reduce(function (sum, k) { return sum + tfs[k]; }, 0);
@@ -742,7 +741,7 @@
         if (seg === "Cash" && openCapital[seg]) {
           capLine = '<div class="lookup-detail" style="margin-top:4px;">Capital in use: <b>' + fmtRupee(openCapital[seg]) + '</b></div>';
         } else if (seg === "F&O" || seg === "Index") {
-          capLine = '<div class="lookup-detail" style="margin-top:4px; opacity:.75;">Capital yahan nahi dikhaya - yeh Future, Option ya Cash-Delivery mein se jo tarika chunenge usi par depend karega. Abhi khud calculate karein.</div>';
+          capLine = '<div class="lookup-detail" style="margin-top:4px; opacity:.75;">Capital not shown here - it depends on whether you trade via Future, Option or Cash-Delivery. Please calculate this yourself for now.</div>';
         } else {
           capLine = '';
         }
