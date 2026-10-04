@@ -720,8 +720,19 @@
         var segTotal = Object.keys(tfs).reduce(function (sum, k) { return sum + tfs[k]; }, 0);
         var breakdown = Object.keys(tfs).sort(function (a, b) { return (TF_ORDER[a] || 9) - (TF_ORDER[b] || 9); })
           .map(function (tf) { return tf + ': ' + tfs[tf]; }).join(' &nbsp;·&nbsp; ');
-        var capLine = (seg === "Cash" && openCapital[seg]) ?
-          '<div class="lookup-detail" style="margin-top:4px;">Capital in use: <b>' + fmtRupee(openCapital[seg]) + '</b></div>' : '';
+        // 04 Oct 2026 - F&O/Index ke liye capital ka asli number abhi nahi
+        // nikal sakte (lot-size + margin% abhi set nahi hain, aur yeh
+        // Future/Option/Cash-Delivery - teeno mein se jo trade-method chunein
+        // usi se alag hoga) - isliye saaf message dikhate hain, galat number
+        // nahi.
+        var capLine;
+        if (seg === "Cash" && openCapital[seg]) {
+          capLine = '<div class="lookup-detail" style="margin-top:4px;">Capital in use: <b>' + fmtRupee(openCapital[seg]) + '</b></div>';
+        } else if (seg === "F&O" || seg === "Index") {
+          capLine = '<div class="lookup-detail" style="margin-top:4px; opacity:.75;">Capital yahan nahi dikhaya - yeh Future, Option ya Cash-Delivery mein se jo tarika chunenge usi par depend karega. Abhi khud calculate karein.</div>';
+        } else {
+          capLine = '';
+        }
         html += '<div class="lookup-card"><div class="lookup-row-top">' +
           '<span class="lookup-tf">' + seg + '</span>' +
           '<span class="basket-side side-buy">' + segTotal + ' open</span></div>' +
