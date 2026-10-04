@@ -26,8 +26,15 @@ self.addEventListener("fetch", function (e) {
   // Live data (Apps Script URL) hamesha network se mangwao, kabhi cache mat karo
   if (e.request.url.indexOf("script.google.com") >= 0) return;
 
+  // 04 Oct 2026 FIX: "network-first" bhi GitHub Pages ke Cache-Control
+  // (max-age=600) ke andar aa jaata tha - plain fetch() browser ki apni
+  // HTTP cache se hi jawaab de deta tha, service worker tak jaane se
+  // pehle hi, isliye deploy ke baad bhi purana hi dikhta rehta tha.
+  // "cache: no-store" se fetch() ko HAMESHA asli network tak jaana
+  // majboor kar diya hai.
+  var noCacheReq = new Request(e.request.url, { cache: "no-store" });
   e.respondWith(
-    fetch(e.request).then(function (fresh) {
+    fetch(noCacheReq).then(function (fresh) {
       var copy = fresh.clone();
       caches.open(CACHE_NAME).then(function (cache) { cache.put(e.request, copy); });
       return fresh;
