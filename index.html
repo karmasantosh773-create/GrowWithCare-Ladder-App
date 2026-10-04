@@ -564,7 +564,11 @@
       result.bySegment[segment][strategy].trades += 1;
       result.totalRupee += rupee;
       result.totalTrades += 1;
-      if (!isScalp) result.ladderCapitalKeys[strategy + "|" + symbol] = true;
+      // 04 Oct 2026 - Cash ka "Capital Deployed" ab sirf OPEN trades se aata
+      // hai (computeOpenCounts), isliye CLOSED Cash trades yahan capital mein
+      // nahi juden - F&O/Index abhi ke liye purana hi tareeka (closed-trade
+      // distinct-symbol count), unhe chhua nahi (lot-size wala kaam baad mein).
+      if (!isScalp && segment !== "Cash") result.ladderCapitalKeys[strategy + "|" + symbol] = true;
     }
 
     if (scalpFrom && scalpTo) {
@@ -580,14 +584,24 @@
 
     if (ladderFrom && ladderTo) {
       var SOURCE_SEGMENT = { "Scanner": "F&O", "Scanner-Cash": "Cash", "Scanner-Index": "Index" };
+      // 04 Oct 2026 - Cash ke liye asli quantity (amountInput / entry) se
+      // rupee P&L nikal rahe hain - flat 50,000% nahi. F&O/Index abhi purane
+      // hi tareeke se (lot-size wala kaam baad mein, abhi scope mein nahi).
+      var cashAmount = parseFloat(document.getElementById("amountInput").value) || 40000;
       ALL_SIGNALS.forEach(function (r) {
         if (r.Status !== "Approved") return;
         if (r.Track_Status !== "SL Hit" && r.Track_Status !== "Target Hit") return;
         if (!(r.Exit_Date >= ladderFrom && r.Exit_Date <= ladderTo)) return;
         var entry = Number(r.Entry), exitPx = Number(r.Exit_Price || r.Last_Close);
-        var realizedPct = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) / entry * 100;
-        var rupee = realizedPct / 100 * 50000;
         var segment = SOURCE_SEGMENT[r.Source] || "F&O";
+        var rupee;
+        if (segment === "Cash") {
+          var qty = entry > 0 ? Math.floor(cashAmount / entry) : 0;
+          rupee = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) * qty;
+        } else {
+          var realizedPct = (r.Side === "BUY" ? 1 : -1) * (exitPx - entry) / entry * 100;
+          rupee = realizedPct / 100 * 50000;
+        }
         addTo(segment, r.Timeframe, r.Symbol, rupee);
       });
     }
@@ -605,18 +619,28 @@
   // nahi laga) - har Segment+Timeframe ke liye alag. Period-filter se azad
   // hai (yeh "abhi" ka snapshot hai, kisi date-range ka nahi).
   function computeOpenCounts(strategyFilter) {
-    var result = {};
-    if (strategyFilter === "Scalp") return result; // Scalp ka apna "open" concept nahi hai (trade-log hai)
+    var counts = {};
+    var capital = {};
+    if (strategyFilter === "Scalp") return { counts: counts, capital: capital }; // Scalp ka apna "open" concept nahi hai (trade-log hai)
     var SOURCE_SEGMENT = { "Scanner": "F&O", "Scanner-Cash": "Cash", "Scanner-Index": "Index" };
+    // 04 Oct 2026 - Cash ka "Capital in use" = open Cash trades ki asli
+    // quantity (amountInput / entry) ka sum. F&O/Index abhi ke liye lot-size
+    // wala kaam baad mein hoga, isliye unka capital yahan nahi nikalte.
+    var cashAmount = parseFloat(document.getElementById("amountInput").value) || 40000;
     ALL_SIGNALS.forEach(function (r) {
       if (r.Status !== "Approved") return;
       if (r.Track_Status === "SL Hit" || r.Track_Status === "Target Hit") return;
       var segment = SOURCE_SEGMENT[r.Source] || "F&O";
-      if (!result[segment]) result[segment] = {};
-      if (!result[segment][r.Timeframe]) result[segment][r.Timeframe] = 0;
-      result[segment][r.Timeframe] += 1;
+      if (!counts[segment]) counts[segment] = {};
+      if (!counts[segment][r.Timeframe]) counts[segment][r.Timeframe] = 0;
+      counts[segment][r.Timeframe] += 1;
+      if (segment === "Cash") {
+        var entry = Number(r.Entry);
+        var qty = entry > 0 ? Math.floor(cashAmount / entry) : 0;
+        capital[segment] = (capital[segment] || 0) + qty * entry;
+      }
     });
-    return result;
+    return { counts: counts, capital: capital };
   }
 
   function renderPerformance() {
@@ -683,8 +707,11 @@
     }
 
     // 04 Oct 2026 - "Abhi Open Trades" - period se azad, har Segment/Timeframe
-    // ka alag count (jo Approved hai par abhi SL/Target nahi laga)
-    var openCounts = computeOpenCounts(currentStrategy);
+    // ka alag count (jo Approved hai par abhi SL/Target nahi laga). Cash ke
+    // liye "Capital in use" bhi (asli quantity se) - F&O/Index ke liye abhi
+    // nahi (lot-size wala kaam baad mein).
+    var openData = computeOpenCounts(currentStrategy);
+    var openCounts = openData.counts, openCapital = openData.capital;
     var openSegs = Object.keys(openCounts).sort();
     if (openSegs.length > 0) {
       html += '<div class="section-label" style="margin-top:18px;">Abhi Open Trades (sabhi period se alag, live snapshot)</div>';
@@ -693,10 +720,12 @@
         var segTotal = Object.keys(tfs).reduce(function (sum, k) { return sum + tfs[k]; }, 0);
         var breakdown = Object.keys(tfs).sort(function (a, b) { return (TF_ORDER[a] || 9) - (TF_ORDER[b] || 9); })
           .map(function (tf) { return tf + ': ' + tfs[tf]; }).join(' &nbsp;·&nbsp; ');
+        var capLine = (seg === "Cash" && openCapital[seg]) ?
+          '<div class="lookup-detail" style="margin-top:4px;">Capital in use: <b>' + fmtRupee(openCapital[seg]) + '</b></div>' : '';
         html += '<div class="lookup-card"><div class="lookup-row-top">' +
           '<span class="lookup-tf">' + seg + '</span>' +
           '<span class="basket-side side-buy">' + segTotal + ' open</span></div>' +
-          '<div class="lookup-detail">' + breakdown + '</div></div>';
+          '<div class="lookup-detail">' + breakdown + '</div>' + capLine + '</div>';
       });
     }
 
