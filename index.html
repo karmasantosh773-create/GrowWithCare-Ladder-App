@@ -282,7 +282,7 @@
   var SCALP_URL = WEBAPP_BASE + "?format=json&tab=scalp";
   var SCALP_TRADES_URL = WEBAPP_BASE + "?format=json&tab=scalptrades";
 
-  var TF_HORIZON = { Daily: "~1 din", Weekly: "~1 mahina", Monthly: "~3 mahine" };
+  var TF_HORIZON = { Daily: "~1 day", Weekly: "~1 month", Monthly: "~3 months" };
   var currentTF = "Weekly";
   var currentSegment = "fo";
   var currentPeriod = "day";
@@ -302,6 +302,11 @@
     var effectiveTF = currentSegment === "cash" ? "Monthly" : currentTF;
     var rows = ALL_SIGNALS.filter(function (r) {
       if (r.Status !== "Approved") return false;
+      // 04 Oct 2026 FIX: trades jo already SL/Target laga chuke hain (closed)
+      // unhe "abhi le sakte hain" wale basket mein nahi dikhana chahiye -
+      // pehle yeh check nahi tha, isliye Kul Capital/Risk/Profit bahut bada
+      // (galat) number dikha raha tha, kyunki closed trades bhi gin rahe the.
+      if (r.Track_Status === "SL Hit" || r.Track_Status === "Target Hit") return false;
       if (currentSegment === "cash" && r.Source !== "Scanner-Cash") return false;
       if (currentSegment === "fo" && r.Source !== "Scanner") return false;
       if (currentSegment === "index" && r.Source !== "Scanner-Index") return false;
