@@ -657,13 +657,18 @@
     }
 
     var periodDays = currentPeriod === "week" ? 7 : (currentPeriod === "month" ? 30 : 0);
-    var scalpFrom, ladderFrom;
+    // 04 Oct 2026 - Scalp ka data abhi sirf BACKTEST PROJECTION hai (01-Sept
+    // se optimized-params ka simulation, 1982 trades) - yeh asli live-tracked
+    // trades NAHI hain. Isliye History ke "All"/"Scalp" total mein inhe
+    // shaamil nahi karte (scalpFrom = null -> computePerformance ka scalp-
+    // block kabhi nahi chalega) - jab tak Scalp genuinely live-track hone na
+    // lage.
+    var scalpFrom = null;
+    var ladderFrom;
     if (currentPeriod === "all") {
-      // 04 Oct 2026 - "All Time": shuru se abhi tak, koi daysBack-cutoff nahi
-      scalpFrom = scalpLatest ? "2000-01-01" : null;
+      // "All Time": shuru se abhi tak, koi daysBack-cutoff nahi
       ladderFrom = ladderLatest ? "2000-01-01" : null;
     } else {
-      scalpFrom = scalpLatest ? (periodDays ? daysBack(scalpLatest, periodDays) : scalpLatest) : null;
       ladderFrom = ladderLatest ? (periodDays ? daysBack(ladderLatest, periodDays) : ladderLatest) : null;
     }
 
@@ -679,11 +684,19 @@
     var html = '<div class="hist-card"><span class="hist-label">' + label + ' - Total P&amp;L</span>' +
       '<span class="hist-val" style="color:' + (perf.totalRupee >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtRupee(perf.totalRupee) + '</span></div>' +
       '<div class="hist-card"><span class="hist-label">Trades Closed</span><span class="hist-val">' + perf.totalTrades + '</span></div>' +
-      '<div class="hist-card"><span class="hist-label">Capital Deployed (Rs 50,000 per peak-concurrent position)</span>' +
+      '<div class="hist-card"><span class="hist-label">Capital Used - F&amp;O/Index closed trades is period mein (Cash/Scalp alag, neeche dekhein)</span>' +
       '<span class="hist-val" style="color:var(--muted)">' + fmtRupee(perf.capital) + '</span></div>';
 
+    // 04 Oct 2026 - Scalp abhi live-tracked nahi hai (sirf backtest
+    // projection) - saaf bata dete hain, "no data" jaisa confusing nahi.
+    if (currentStrategy === "Scalp") {
+      html += '<div class="note" style="margin-top:10px;">Scalp abhi ek backtested projection hai ' +
+        '(asli live-tracked trades nahi) - isliye History mein count nahi kiya ja raha. ' +
+        'Jab Scalp live-track hona shuru hoga, yahan dikhega.</div>';
+    }
+
     var segments = Object.keys(perf.bySegment);
-    if (segments.length === 0) {
+    if (segments.length === 0 && currentStrategy !== "Scalp") {
       html += '<div class="note" style="margin-top:10px;">No closed trades in this period' +
         (currentStrategy !== "all" ? " for " + currentStrategy : "") + '.</div>';
     }
