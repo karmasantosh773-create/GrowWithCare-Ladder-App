@@ -249,6 +249,7 @@
       <div class="chip active" data-period="day">Latest Day</div>
       <div class="chip" data-period="week">Last 7 Days</div>
       <div class="chip" data-period="month">Last 30 Days</div>
+      <div class="chip" data-period="all">All Time</div>
     </div>
     <div id="perfReport" style="margin-top:14px;"><div class="loading">Loading...</div></div>
     <div class="note">Based on actual backtested trades (Weekly/Monthly ladder signals + Scalp, Rs 50,000 per position). Scalp Cash-segment data not available yet.</div>
@@ -600,6 +601,24 @@
     return result;
   }
 
+  // 04 Oct 2026 - "Abhi kitne trades OPEN hain" (Running, SL/Target abhi
+  // nahi laga) - har Segment+Timeframe ke liye alag. Period-filter se azad
+  // hai (yeh "abhi" ka snapshot hai, kisi date-range ka nahi).
+  function computeOpenCounts(strategyFilter) {
+    var result = {};
+    if (strategyFilter === "Scalp") return result; // Scalp ka apna "open" concept nahi hai (trade-log hai)
+    var SOURCE_SEGMENT = { "Scanner": "F&O", "Scanner-Cash": "Cash", "Scanner-Index": "Index" };
+    ALL_SIGNALS.forEach(function (r) {
+      if (r.Status !== "Approved") return;
+      if (r.Track_Status === "SL Hit" || r.Track_Status === "Target Hit") return;
+      var segment = SOURCE_SEGMENT[r.Source] || "F&O";
+      if (!result[segment]) result[segment] = {};
+      if (!result[segment][r.Timeframe]) result[segment][r.Timeframe] = 0;
+      result[segment][r.Timeframe] += 1;
+    });
+    return result;
+  }
+
   function renderPerformance() {
     var container = document.getElementById("perfReport");
     if (SCALP_TRADES_DATA.length === 0 && ALL_SIGNALS.length === 0) {
@@ -614,10 +633,17 @@
     }
 
     var periodDays = currentPeriod === "week" ? 7 : (currentPeriod === "month" ? 30 : 0);
-    var scalpFrom = scalpLatest ? (periodDays ? daysBack(scalpLatest, periodDays) : scalpLatest) : null;
-    var ladderFrom = ladderLatest ? (periodDays ? daysBack(ladderLatest, periodDays) : ladderLatest) : null;
+    var scalpFrom, ladderFrom;
+    if (currentPeriod === "all") {
+      // 04 Oct 2026 - "All Time": shuru se abhi tak, koi daysBack-cutoff nahi
+      scalpFrom = scalpLatest ? "2000-01-01" : null;
+      ladderFrom = ladderLatest ? "2000-01-01" : null;
+    } else {
+      scalpFrom = scalpLatest ? (periodDays ? daysBack(scalpLatest, periodDays) : scalpLatest) : null;
+      ladderFrom = ladderLatest ? (periodDays ? daysBack(ladderLatest, periodDays) : ladderLatest) : null;
+    }
 
-    var label = currentPeriod === "week" ? "Last 7 Days" : (currentPeriod === "month" ? "Last 30 Days" : "Latest Trading Day");
+    var label = currentPeriod === "week" ? "Last 7 Days" : (currentPeriod === "month" ? "Last 30 Days" : (currentPeriod === "all" ? "All Time" : "Latest Trading Day"));
     if (currentPeriod === "day") {
       if (currentStrategy === "Scalp") label += " (" + scalpLatest + ")";
       else if (currentStrategy === "Ladder") label += " (" + ladderLatest + ")";
@@ -654,6 +680,24 @@
       if (!hasCashScalp) {
         html += '<div class="note" style="margin-top:14px;">Cash-segment Scalp data is not available yet.</div>';
       }
+    }
+
+    // 04 Oct 2026 - "Abhi Open Trades" - period se azad, har Segment/Timeframe
+    // ka alag count (jo Approved hai par abhi SL/Target nahi laga)
+    var openCounts = computeOpenCounts(currentStrategy);
+    var openSegs = Object.keys(openCounts).sort();
+    if (openSegs.length > 0) {
+      html += '<div class="section-label" style="margin-top:18px;">Abhi Open Trades (sabhi period se alag, live snapshot)</div>';
+      openSegs.forEach(function (seg) {
+        var tfs = openCounts[seg];
+        var segTotal = Object.keys(tfs).reduce(function (sum, k) { return sum + tfs[k]; }, 0);
+        var breakdown = Object.keys(tfs).sort(function (a, b) { return (TF_ORDER[a] || 9) - (TF_ORDER[b] || 9); })
+          .map(function (tf) { return tf + ': ' + tfs[tf]; }).join(' &nbsp;·&nbsp; ');
+        html += '<div class="lookup-card"><div class="lookup-row-top">' +
+          '<span class="lookup-tf">' + seg + '</span>' +
+          '<span class="basket-side side-buy">' + segTotal + ' open</span></div>' +
+          '<div class="lookup-detail">' + breakdown + '</div></div>';
+      });
     }
 
     container.innerHTML = html;
