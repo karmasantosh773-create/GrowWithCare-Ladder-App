@@ -312,6 +312,22 @@
       if (currentSegment === "index" && r.Source !== "Scanner-Index") return false;
       return r.Timeframe === effectiveTF;
     });
+
+    // 05 Oct 2026 FIX: purane backfill se ek hi stock ke kayi historical
+    // signals "Approved + abhi tak Running" ho sakte hain (jab tak unka
+    // purana wala SL/Target na laga ho, dedup unhe alag-alag din push kar
+    // deta hai). Basket mein ek stock ka sirf SABSE NAYA (latest Date)
+    // wala dikhayein - repetition hat jaayegi.
+    var latestPerKey = {};
+    rows.forEach(function (r) {
+      var key = r.Timeframe + "|" + r.Symbol + "|" + r.Side;
+      if (!latestPerKey[key] || String(r.Date) > String(latestPerKey[key].Date)) {
+        latestPerKey[key] = r;
+      }
+    });
+    rows = Object.keys(latestPerKey).map(function (k) { return latestPerKey[k]; });
+    var maxDate = rows.reduce(function (m, r) { return String(r.Date) > m ? String(r.Date) : m; }, "");
+
     // Rank: sabse CHHOTA SL% sabse accha (tightest risk) - usi ko star milega
     rows = rows.slice().sort(function (a, b) { return Number(a.SL_Pct) - Number(b.SL_Pct); });
 
@@ -343,11 +359,17 @@
     var html = "";
     cards.forEach(function (c) {
       var r = c.r;
+      // 05 Oct 2026 - har card par date-badge, taaki "aaj ka naya" aur
+      // "purana" saaf dikhe - "NEW" sirf is tab ke sabse latest Date par.
+      var dateBadge = r.Date === maxDate ?
+        '<span style="color:var(--green); font-weight:700;">NEW · ' + r.Date + '</span>' :
+        '<span style="opacity:.6;">' + r.Date + '</span>';
       html += '<div class="basket-card' + (c.isBest ? ' best' : '') + '">' +
         '<div class="basket-top">' +
           '<span class="basket-sym">' + (c.isBest ? '<span class="star">⭐</span>' : '') + r.Symbol + '</span>' +
           '<span class="basket-side ' + (r.Side === "SELL" ? "side-sell" : "side-buy") + '">' + r.Side + '</span>' +
         '</div>' +
+        '<div class="basket-top" style="margin-top:-6px; font-size:.78rem;">' + dateBadge + '</div>' +
         '<div class="basket-grid">' +
           '<div><div class="g-label">Qty</div><div class="g-val">' + c.qty + '</div></div>' +
           '<div><div class="g-label">Entry</div><div class="g-val">' + fmtNum(r.Entry) + '</div></div>' +
