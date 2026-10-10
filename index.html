@@ -299,7 +299,8 @@
 
   function computeBasket() {
     var amount = parseFloat(document.getElementById("amountInput").value) || 0;
-    var effectiveTF = currentSegment === "cash" ? "Monthly" : currentTF;
+    // 10 Oct 2026: Cash mein ab "1 Day" (D4 Setup+Breakout, sirf BUY) bhi - pehle sirf Monthly tha
+    var effectiveTF = currentTF;
     var rows = ALL_SIGNALS.filter(function (r) {
       if (r.Status !== "Approved") return false;
       // 04 Oct 2026 FIX: trades jo already SL/Target laga chuke hain (closed)
@@ -354,7 +355,7 @@
       '<div>Kul Capital<b>' + fmtRupee(totalCapital) + '</b></div>' +
       '<div>Max Risk (sab SL lagein)<b class="risk">' + fmtRupee(totalRisk) + '</b></div>' +
       '<div>Max Profit (sab Target hit)<b class="profit">' + fmtRupee(totalProfit) + '</b></div>' +
-      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (TF_HORIZON[effectiveTF] || "-") + '</div>';
+      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (currentSegment === "cash" && effectiveTF === "Daily" ? "up to ~20 days (exit: daily close below EMA48 Low)" : (TF_HORIZON[effectiveTF] || "-")) + '</div>';
 
     var container = document.getElementById("basketList");
     if (cards.length === 0) {
@@ -815,12 +816,18 @@
   function updateSegmentUI() {
     var tfRow = document.getElementById("tfChips");
     var tfLabel = document.getElementById("tfLabel");
-    if (currentSegment === "fo" || currentSegment === "index") {
-      tfRow.style.display = "";
-      tfLabel.style.display = "";
+    tfRow.style.display = "";
+    tfLabel.style.display = "";
+    // 10 Oct 2026: Cash = "1 Day" (D4) + "1 Month" (grid); Weekly cash mein nahi hai
+    var wk = tfRow.querySelector('[data-tf="Weekly"]');
+    if (currentSegment === "cash") {
+      wk.classList.add("disabled");
+      if (currentTF === "Weekly") {
+        currentTF = "Daily";
+        tfRow.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("active", c.getAttribute("data-tf") === "Daily"); });
+      }
     } else {
-      tfRow.style.display = "none";
-      tfLabel.style.display = "none";
+      wk.classList.remove("disabled");
     }
   }
 
