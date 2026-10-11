@@ -207,6 +207,7 @@
       <div class="chip" data-tf="Daily">1 Day</div>
       <div class="chip active" data-tf="Weekly">1 Week</div>
       <div class="chip" data-tf="Monthly">1 Month</div>
+      <div class="chip" data-tf="D4-Watch" style="display:none">कल के Setup</div>
     </div>
 
     <div class="summary-bar" id="summaryBar"></div>
@@ -297,11 +298,31 @@
   }
   function fmtRupee(v) { return "₹" + fmtNum(Math.round(v)); }
 
+  // 12 Oct 2026: har card par "Abhi ka bhav" (tracker/scanner ka Last_Close) - chart kholne ki zaroorat nahi
+  function nowLine(r) {
+    var lc = Number(r.Last_Close), e = Number(r.Entry);
+    if (!lc || !e) return "";
+    var pct = (lc / e - 1) * 100 * (r.Side === "SELL" ? -1 : 1);
+    var txt, col;
+    if (r.Status === "Watch") {
+      txt = "Trigger se " + Math.abs(lc / e * 100 - 100).toFixed(2) + "% " + (lc < e ? "neeche" : "upar");
+      col = "var(--yellow)";
+    } else {
+      txt = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+      col = pct >= 0 ? "var(--green)" : "var(--red)";
+    }
+    return '<div style="margin-top:8px; font-size:12.5px; display:flex; justify-content:space-between;">' +
+      '<span>Abhi: <b>₹' + fmtNum(lc) + '</b> <b style="color:' + col + '">(' + txt + ')</b></span>' +
+      '<span style="opacity:.6;">' + (r.Last_Checked ? (r.Status === "Watch" ? r.Last_Checked + " close" : "update " + r.Last_Checked) : "") + '</span></div>';
+  }
+
   function computeBasket() {
     var amount = parseFloat(document.getElementById("amountInput").value) || 0;
     // 10 Oct 2026: Cash mein ab "1 Day" (D4 Setup+Breakout, sirf BUY) bhi - pehle sirf Monthly tha
     var effectiveTF = currentTF;
     var rows = ALL_SIGNALS.filter(function (r) {
+      // 12 Oct 2026: "Kal ke Setup" (D4-Watch) tab mein Status=Watch wali rows
+      if (effectiveTF === "D4-Watch") return r.Status === "Watch" && r.Timeframe === "D4-Watch" && r.Source === "Scanner-Cash";
       if (r.Status !== "Approved") return false;
       // 04 Oct 2026 FIX: trades jo already SL/Target laga chuke hain (closed)
       // unhe "abhi le sakte hain" wale basket mein nahi dikhana chahiye -
@@ -355,11 +376,11 @@
       '<div>Kul Capital<b>' + fmtRupee(totalCapital) + '</b></div>' +
       '<div>Max Risk (sab SL lagein)<b class="risk">' + fmtRupee(totalRisk) + '</b></div>' +
       '<div>Max Profit (sab Target hit)<b class="profit">' + fmtRupee(totalProfit) + '</b></div>' +
-      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (currentSegment === "cash" && effectiveTF === "Daily" ? "up to ~20 days (exit: daily close below EMA48 Low)" : (TF_HORIZON[effectiveTF] || "-")) + '</div>';
+      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (effectiveTF === "D4-Watch" ? "Agle din ka CLOSE Trigger ke upar aaye tabhi BUY (phir 1 Day (D4) mein aa jayega)" : currentSegment === "cash" && effectiveTF === "Daily" ? "up to ~20 days (exit: daily close below EMA48 Low)" : (TF_HORIZON[effectiveTF] || "-")) + '</div>';
 
     var container = document.getElementById("basketList");
     if (cards.length === 0) {
-      container.innerHTML = '<div class="empty">No Approved signal in this timeframe right now.</div>';
+      container.innerHTML = '<div class="empty">' + (effectiveTF === "D4-Watch" ? "Kal ke liye koi D4 setup nahi." : "No Approved signal in this timeframe right now.") + '</div>';
       return;
     }
 
@@ -379,10 +400,11 @@
         '<div class="basket-top" style="margin-top:-6px; font-size:.78rem;">' + dateBadge + '</div>' +
         '<div class="basket-grid">' +
           '<div><div class="g-label">Qty</div><div class="g-val">' + c.qty + '</div></div>' +
-          '<div><div class="g-label">Entry</div><div class="g-val">' + fmtNum(r.Entry) + '</div></div>' +
+          '<div><div class="g-label">' + (r.Status === "Watch" ? "Trigger" : "Entry") + '</div><div class="g-val">' + fmtNum(r.Entry) + '</div></div>' +
           '<div><div class="g-label">SL</div><div class="g-val g-sl">' + fmtNum(r.SL) + '</div></div>' +
           '<div><div class="g-label">Target</div><div class="g-val g-tgt">' + fmtNum(r.Target) + '</div></div>' +
         '</div>' +
+        nowLine(r) +
         '<div class="basket-rupees">' +
           '<span>Risk: <b style="color:var(--red)">' + fmtRupee(c.riskRs) + '</b></span>' +
           '<span>Profit: <b style="color:var(--green)">' + fmtRupee(c.profitRs) + '</b></span>' +
@@ -821,6 +843,12 @@
     // 10 Oct 2026: Cash = "1 Day" (D4) + "1 Month" (grid); Weekly cash mein nahi hai
     var wk = tfRow.querySelector('[data-tf="Weekly"]');
     tfRow.querySelector('[data-tf="Daily"]').textContent = currentSegment === "cash" ? "1 Day (D4)" : "1 Day";
+    var wch = tfRow.querySelector('[data-tf="D4-Watch"]');
+    wch.style.display = currentSegment === "cash" ? "" : "none";
+    if (currentSegment !== "cash" && currentTF === "D4-Watch") {
+      currentTF = "Weekly";
+      tfRow.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("active", c.getAttribute("data-tf") === "Weekly"); });
+    }
     if (currentSegment === "cash") {
       wk.classList.add("disabled");
       if (currentTF === "Weekly") {
