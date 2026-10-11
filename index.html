@@ -820,6 +820,7 @@
     tfLabel.style.display = "";
     // 10 Oct 2026: Cash = "1 Day" (D4) + "1 Month" (grid); Weekly cash mein nahi hai
     var wk = tfRow.querySelector('[data-tf="Weekly"]');
+    tfRow.querySelector('[data-tf="Daily"]').textContent = currentSegment === "cash" ? "1 Day (D4)" : "1 Day";
     if (currentSegment === "cash") {
       wk.classList.add("disabled");
       if (currentTF === "Weekly") {
