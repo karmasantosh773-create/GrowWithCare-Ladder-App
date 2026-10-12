@@ -376,7 +376,7 @@
       '<div>Kul Capital<b>' + fmtRupee(totalCapital) + '</b></div>' +
       '<div>Max Risk (sab SL lagein)<b class="risk">' + fmtRupee(totalRisk) + '</b></div>' +
       '<div>Max Profit (sab Target hit)<b class="profit">' + fmtRupee(totalProfit) + '</b></div>' +
-      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (effectiveTF === "D4-Watch" ? "Agle din ka CLOSE Trigger ke upar aaye tabhi BUY (phir 1 Day (D4) mein aa jayega)" : currentSegment === "cash" && effectiveTF === "Daily" ? "up to ~20 days (exit: daily close below EMA48 Low)" : (TF_HORIZON[effectiveTF] || "-")) + '</div>';
+      '<div class="summary-horizon">If the whole basket hits, potential time: ' + (effectiveTF === "D4-Watch" ? "Agle din ka CLOSE Trigger ke upar aaye tabhi BUY (phir 1 Day (D4) mein aa jayega)" : currentSegment === "cash" && effectiveTF === "Daily" ? "up to ~20 days (exit: daily close below Daily Channel)" : (TF_HORIZON[effectiveTF] || "-")) + '</div>';
 
     var container = document.getElementById("basketList");
     if (cards.length === 0) {
